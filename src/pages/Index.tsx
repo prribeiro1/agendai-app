@@ -11,12 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const services = [
-  { name: 'Haircut', price: 'R$ 30', duration: '30 min' },
-  { name: 'Beard Trim', price: 'R$ 20', duration: '20 min' },
-  { name: 'Haircut + Beard', price: 'R$ 45', duration: '45 min' }
+  { name: 'Corte de Cabelo', price: 'R$ 30', duration: '30 min' },
+  { name: 'Acabamento de Barba', price: 'R$ 20', duration: '20 min' },
+  { name: 'Corte + Barba', price: 'R$ 45', duration: '45 min' }
 ];
 
-const barbers = ['João Silva', 'Pedro Santos', 'Any Available'];
+const barbers = ['João Silva', 'Pedro Santos', 'Qualquer Disponível'];
 const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
 interface Appointment {
@@ -28,7 +28,7 @@ interface Appointment {
   name: string;
   phone: string;
   notes: string;
-  status: 'Confirmed' | 'Canceled';
+  status: 'Confirmado' | 'Cancelado';
 }
 
 const Index = () => {
@@ -76,7 +76,7 @@ const Index = () => {
     if (!validateForm()) return;
 
     const isBooked = appointments.some(
-      (appt) => appt.date === form.date && appt.time === form.time && appt.barber === form.barber && appt.status === 'Confirmed'
+      (appt) => appt.date === form.date && appt.time === form.time && appt.barber === form.barber && appt.status === 'Confirmado'
     );
 
     if (isBooked) {
@@ -86,7 +86,7 @@ const Index = () => {
 
     const newAppointment: Appointment = {
       ...form,
-      status: 'Confirmed',
+      status: 'Confirmado',
       id: Date.now()
     };
 
@@ -108,7 +108,7 @@ const Index = () => {
     if (window.confirm('Deseja cancelar este agendamento?')) {
       setAppointments(prev => 
         prev.map(appt => 
-          appt.id === id ? { ...appt, status: 'Canceled' } : appt
+          appt.id === id ? { ...appt, status: 'Cancelado' } : appt
         )
       );
       toast.success('Agendamento cancelado.');
@@ -117,7 +117,7 @@ const Index = () => {
 
   const availableTimes = timeSlots.filter(
     (time) => !appointments.some(
-      (appt) => appt.date === form.date && appt.time === time && appt.barber === form.barber && appt.status === 'Confirmed'
+      (appt) => appt.date === form.date && appt.time === time && appt.barber === form.barber && appt.status === 'Confirmado'
     )
   );
 
@@ -137,7 +137,7 @@ Obrigado pela preferência!`;
   };
 
   const todayAppointments = appointments.filter(
-    appt => appt.date === new Date().toISOString().split('T')[0] && appt.status === 'Confirmed'
+    appt => appt.date === new Date().toISOString().split('T')[0] && appt.status === 'Confirmado'
   );
 
   return (
@@ -147,7 +147,7 @@ Obrigado pela preferência!`;
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4 md:mb-0">
             <Scissors className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">BarberShop Pro</h1>
+            <h1 className="text-3xl font-bold text-gray-900">AgendAI</h1>
           </div>
           <div className="flex gap-3">
             <Button 
@@ -164,7 +164,7 @@ Obrigado pela preferência!`;
               className="flex items-center gap-2"
             >
               <User className="h-4 w-4" />
-              Dashboard
+              Painel
             </Button>
           </div>
         </div>
@@ -336,7 +336,7 @@ Obrigado pela preferência!`;
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total</p>
-                      <p className="text-2xl font-bold text-green-600">{appointments.filter(a => a.status === 'Confirmed').length}</p>
+                      <p className="text-2xl font-bold text-green-600">{appointments.filter(a => a.status === 'Confirmado').length}</p>
                     </div>
                     <User className="h-8 w-8 text-green-600" />
                   </div>
@@ -348,7 +348,7 @@ Obrigado pela preferência!`;
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Cancelados</p>
-                      <p className="text-2xl font-bold text-red-600">{appointments.filter(a => a.status === 'Canceled').length}</p>
+                      <p className="text-2xl font-bold text-red-600">{appointments.filter(a => a.status === 'Cancelado').length}</p>
                     </div>
                     <Scissors className="h-8 w-8 text-red-600" />
                   </div>
@@ -398,13 +398,13 @@ Obrigado pela preferência!`;
                             <td className="p-4">{appt.barber}</td>
                             <td className="p-4">
                               <Badge 
-                                variant={appt.status === 'Confirmed' ? 'default' : 'destructive'}
+                                variant={appt.status === 'Confirmado' ? 'default' : 'destructive'}
                               >
-                                {appt.status === 'Confirmed' ? 'Confirmado' : 'Cancelado'}
+                                {appt.status === 'Confirmado' ? 'Confirmado' : 'Cancelado'}
                               </Badge>
                             </td>
                             <td className="p-4">
-                              {appt.status === 'Confirmed' && (
+                              {appt.status === 'Confirmado' && (
                                 <Button
                                   onClick={() => cancelAppointment(appt.id)}
                                   variant="destructive"
