@@ -10,6 +10,7 @@ import AuthLayout from "./components/auth/AuthLayout";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
 import BookingPage from "./pages/BookingPage";
 import NotFound from "./pages/NotFound";
+import { toast } from "sonner";
 
 const queryClient = new QueryClient();
 
@@ -22,17 +23,49 @@ const App = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+
+      // Verificar status da assinatura após login
+      if (session) {
+        checkSubscription();
+      }
     });
 
     // Escutar mudanças na autenticação
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      
+      // Verificar status da assinatura após login
+      if (session) {
+        checkSubscription();
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Verificar status da assinatura
+  const checkSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      if (error) throw error;
+      
+      // Verificar se há parâmetros de sucesso na URL (vindo do Stripe)
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('success')) {
+        toast.success('Assinatura realizada com sucesso!');
+        // Limpar os parâmetros da URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (urlParams.get('canceled')) {
+        toast.info('Processo de assinatura cancelado');
+        // Limpar os parâmetros da URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar assinatura:', error);
+    }
+  };
 
   if (loading) {
     return (

@@ -1,0 +1,16 @@
+
+[global]
+postgres_connection = true
+
+[http_port]
+port = 8000
+
+[edge_functions]
+[edge_functions.create-checkout]
+verify_jwt = true
+
+[edge_functions.check-subscription]
+verify_jwt = true
+
+[edge_functions.customer-portal]
+verify_jwt = true
