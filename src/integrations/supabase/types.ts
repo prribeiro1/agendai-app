@@ -188,6 +188,24 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          id: string
+          name: string
+          phone: string
+        }
+        Insert: {
+          id: string
+          name: string
+          phone: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          phone?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           barbershop_id: string | null

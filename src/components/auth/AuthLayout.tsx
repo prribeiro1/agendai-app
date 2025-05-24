@@ -11,7 +11,7 @@ import { Scissors } from 'lucide-react';
 
 const AuthLayout = () => {
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
 
@@ -19,16 +19,48 @@ const AuthLayout = () => {
     e.preventDefault();
     setLoading(true);
     
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // Buscar o usuário pelo telefone na tabela profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', phone)
+        .single();
 
-    if (error) {
-      toast.error('Erro ao fazer login: ' + error.message);
-    } else {
-      toast.success('Login realizado com sucesso!');
+      if (profileError || !profile) {
+        toast.error('Telefone não encontrado');
+        setLoading(false);
+        return;
+      }
+
+      // Buscar o email do usuário na tabela auth.users
+      const { data: user, error: userError } = await supabase
+        .from('auth.users')
+        .select('email')
+        .eq('id', profile.id)
+        .single();
+
+      if (userError || !user) {
+        toast.error('Erro ao buscar dados do usuário');
+        setLoading(false);
+        return;
+      }
+
+      // Fazer login com email e senha
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
+
+      if (error) {
+        toast.error('Erro ao fazer login: ' + error.message);
+      } else {
+        toast.success('Login realizado com sucesso!');
+      }
+    } catch (error) {
+      toast.error('Erro inesperado ao fazer login');
     }
+    
     setLoading(false);
   };
 
@@ -36,22 +68,65 @@ const AuthLayout = () => {
     e.preventDefault();
     setLoading(true);
     
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: name,
-        }
-      }
-    });
+    try {
+      // Verificar se o telefone já está em uso
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', phone)
+        .single();
 
-    if (error) {
-      toast.error('Erro ao criar conta: ' + error.message);
-    } else {
-      toast.success('Conta criada! Verifique seu email para confirmar.');
+      if (existingProfile) {
+        toast.error('Este telefone já está cadastrado');
+        setLoading(false);
+        return;
+      }
+
+      // Criar um email temporário baseado no telefone
+      const tempEmail = `${phone.replace(/\D/g, '')}@temp.agendai.com`;
+
+      const { error } = await supabase.auth.signUp({
+        email: tempEmail,
+        password,
+        options: {
+          data: {
+            name: name,
+            phone: phone,
+          }
+        }
+      });
+
+      if (error) {
+        toast.error('Erro ao criar conta: ' + error.message);
+      } else {
+        toast.success('Conta criada com sucesso!');
+      }
+    } catch (error) {
+      toast.error('Erro inesperado ao criar conta');
     }
+    
     setLoading(false);
+  };
+
+  const formatPhone = (value: string) => {
+    // Remove tudo que não for número
+    const phoneNumber = value.replace(/\D/g, '');
+    
+    // Aplica a máscara (11) 99999-9999
+    if (phoneNumber.length <= 2) {
+      return phoneNumber;
+    } else if (phoneNumber.length <= 7) {
+      return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2)}`;
+    } else if (phoneNumber.length <= 11) {
+      return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 7)}-${phoneNumber.slice(7)}`;
+    } else {
+      return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 7)}-${phoneNumber.slice(7, 11)}`;
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setPhone(formatted);
   };
 
   return (
@@ -73,12 +148,13 @@ const AuthLayout = () => {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <Label htmlFor="email">E-mail</Label>
+                  <Label htmlFor="phone">Telefone (WhatsApp)</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    placeholder="(11) 99999-9999"
                     required
                   />
                 </div>
@@ -101,7 +177,7 @@ const AuthLayout = () => {
             <TabsContent value="register">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nome</Label>
+                  <Label htmlFor="name">Nome Completo</Label>
                   <Input
                     id="name"
                     type="text"
@@ -111,12 +187,13 @@ const AuthLayout = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email">E-mail</Label>
+                  <Label htmlFor="phone">Telefone (WhatsApp)</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    placeholder="(11) 99999-9999"
                     required
                   />
                 </div>
