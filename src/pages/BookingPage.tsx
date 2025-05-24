@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +37,7 @@ const BookingPage = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     service_id: '',
     barber_id: '',
@@ -54,41 +56,61 @@ const BookingPage = () => {
   }, [slug]);
 
   const loadBarbershopData = async () => {
-    // Carregar dados da barbearia
-    const { data: barbershopData, error: barbershopError } = await supabase
-      .from('barbershops')
-      .select('*')
-      .eq('slug', slug)
-      .eq('is_active', true)
-      .single();
+    try {
+      console.log('Carregando dados da barbearia com slug:', slug);
+      
+      // Carregar dados da barbearia
+      const { data: barbershopData, error: barbershopError } = await supabase
+        .from('barbershops')
+        .select('*')
+        .eq('slug', slug)
+        .eq('is_active', true)
+        .single();
 
-    if (barbershopError || !barbershopData) {
-      toast.error('Barbearia não encontrada ou inativa');
+      if (barbershopError || !barbershopData) {
+        console.error('Erro ao carregar barbearia:', barbershopError);
+        toast.error('Barbearia não encontrada ou inativa');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Barbearia carregada:', barbershopData);
+      setBarbershop(barbershopData);
+
+      // Carregar serviços
+      const { data: servicesData, error: servicesError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('barbershop_id', barbershopData.id)
+        .eq('is_active', true);
+
+      if (servicesError) {
+        console.error('Erro ao carregar serviços:', servicesError);
+      } else {
+        console.log('Serviços carregados:', servicesData);
+        setServices(servicesData || []);
+      }
+
+      // Carregar barbeiros
+      const { data: barbersData, error: barbersError } = await supabase
+        .from('barbers')
+        .select('*')
+        .eq('barbershop_id', barbershopData.id)
+        .eq('is_active', true);
+
+      if (barbersError) {
+        console.error('Erro ao carregar barbeiros:', barbersError);
+      } else {
+        console.log('Barbeiros carregados:', barbersData);
+        setBarbers(barbersData || []);
+      }
+
+    } catch (error) {
+      console.error('Erro inesperado ao carregar dados:', error);
+      toast.error('Erro inesperado ao carregar dados da barbearia');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setBarbershop(barbershopData);
-
-    // Carregar serviços
-    const { data: servicesData } = await supabase
-      .from('services')
-      .select('*')
-      .eq('barbershop_id', barbershopData.id)
-      .eq('is_active', true);
-
-    if (servicesData) setServices(servicesData);
-
-    // Carregar barbeiros
-    const { data: barbersData } = await supabase
-      .from('barbers')
-      .select('*')
-      .eq('barbershop_id', barbershopData.id)
-      .eq('is_active', true);
-
-    if (barbersData) setBarbers(barbersData);
-
-    setLoading(false);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -98,7 +120,10 @@ const BookingPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!barbershop) return;
+    if (!barbershop) {
+      toast.error('Dados da barbearia não encontrados');
+      return;
+    }
 
     // Validar campos obrigatórios
     if (!form.service_id || !form.barber_id || !form.appointment_time || !form.client_name || !form.client_phone) {
@@ -106,38 +131,56 @@ const BookingPage = () => {
       return;
     }
 
-    // Preparar dados para inserção, garantindo que UUIDs vazios sejam null
-    const appointmentData = {
-      barbershop_id: barbershop.id,
-      service_id: form.service_id || null,
-      barber_id: form.barber_id || null,
-      appointment_date: form.appointment_date,
-      appointment_time: form.appointment_time,
-      client_name: form.client_name,
-      client_phone: form.client_phone,
-      client_email: form.client_email || null,
-      notes: form.notes || null
-    };
+    setSubmitting(true);
 
-    const { error } = await supabase
-      .from('appointments')
-      .insert([appointmentData]);
-
-    if (error) {
-      console.error('Erro ao agendar:', error);
-      toast.error('Erro ao agendar: ' + error.message);
-    } else {
-      toast.success('Agendamento realizado com sucesso!');
-      setForm({
-        service_id: '',
-        barber_id: '',
-        appointment_date: new Date().toISOString().split('T')[0],
-        appointment_time: '',
-        client_name: '',
-        client_phone: '',
-        client_email: '',
-        notes: ''
+    try {
+      console.log('Dados do agendamento:', {
+        barbershop_id: barbershop.id,
+        service_id: form.service_id,
+        barber_id: form.barber_id,
+        appointment_date: form.appointment_date,
+        appointment_time: form.appointment_time,
+        client_name: form.client_name,
+        client_phone: form.client_phone,
+        client_email: form.client_email || null,
+        notes: form.notes || null
       });
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert([{
+          barbershop_id: barbershop.id,
+          service_id: form.service_id,
+          barber_id: form.barber_id,
+          appointment_date: form.appointment_date,
+          appointment_time: form.appointment_time,
+          client_name: form.client_name,
+          client_phone: form.client_phone,
+          client_email: form.client_email || null,
+          notes: form.notes || null
+        }]);
+
+      if (error) {
+        console.error('Erro ao agendar:', error);
+        toast.error('Erro ao agendar: ' + error.message);
+      } else {
+        toast.success('Agendamento realizado com sucesso!');
+        setForm({
+          service_id: '',
+          barber_id: '',
+          appointment_date: new Date().toISOString().split('T')[0],
+          appointment_time: '',
+          client_name: '',
+          client_phone: '',
+          client_email: '',
+          notes: ''
+        });
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao agendar:', error);
+      toast.error('Erro inesperado ao agendar');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -158,6 +201,24 @@ const BookingPage = () => {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Barbearia não encontrada</h1>
           <p className="text-gray-600">Esta barbearia pode estar inativa ou não existir.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (services.length === 0 || barbers.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Agendamento Indisponível</h1>
+          <p className="text-gray-600">
+            {services.length === 0 && barbers.length === 0 
+              ? 'Esta barbearia ainda não possui serviços nem barbeiros cadastrados.'
+              : services.length === 0 
+              ? 'Esta barbearia ainda não possui serviços cadastrados.'
+              : 'Esta barbearia ainda não possui barbeiros cadastrados.'
+            }
+          </p>
         </div>
       </div>
     );
@@ -257,6 +318,7 @@ const BookingPage = () => {
                     onChange={(e) => handleInputChange('appointment_date', e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
                     required
+                    disabled={submitting}
                   />
                 </div>
 
@@ -284,6 +346,7 @@ const BookingPage = () => {
                     onChange={(e) => handleInputChange('client_name', e.target.value)}
                     placeholder="Digite seu nome"
                     required
+                    disabled={submitting}
                   />
                 </div>
 
@@ -295,6 +358,7 @@ const BookingPage = () => {
                     onChange={(e) => handleInputChange('client_phone', e.target.value)}
                     placeholder="(11) 99999-9999"
                     required
+                    disabled={submitting}
                   />
                 </div>
               </div>
@@ -307,6 +371,7 @@ const BookingPage = () => {
                   value={form.client_email}
                   onChange={(e) => handleInputChange('client_email', e.target.value)}
                   placeholder="seu@email.com"
+                  disabled={submitting}
                 />
               </div>
 
@@ -317,6 +382,7 @@ const BookingPage = () => {
                   value={form.notes}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                   placeholder="Alguma observação especial?"
+                  disabled={submitting}
                 />
               </div>
 
@@ -326,8 +392,8 @@ const BookingPage = () => {
                     Total: R$ {selectedService.price.toFixed(2)}
                   </p>
                 )}
-                <Button type="submit" className="w-full md:w-auto px-8 py-3 text-lg">
-                  Confirmar Agendamento
+                <Button type="submit" className="w-full md:w-auto px-8 py-3 text-lg" disabled={submitting}>
+                  {submitting ? 'Agendando...' : 'Confirmar Agendamento'}
                 </Button>
               </div>
             </form>

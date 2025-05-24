@@ -27,69 +27,100 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',
     photo_url: ''
   });
 
   useEffect(() => {
-    loadBarbers();
+    if (barbershopId) {
+      loadBarbers();
+    }
   }, [barbershopId]);
 
   const loadBarbers = async () => {
-    const { data, error } = await supabase
-      .from('barbers')
-      .select('*')
-      .eq('barbershop_id', barbershopId)
-      .order('name');
+    try {
+      console.log('Carregando barbeiros para barbershop_id:', barbershopId);
+      
+      const { data, error } = await supabase
+        .from('barbers')
+        .select('*')
+        .eq('barbershop_id', barbershopId)
+        .order('name');
 
-    if (error) {
-      console.error('Erro ao carregar barbeiros:', error);
-      toast.error('Erro ao carregar barbeiros');
-    } else {
-      setBarbers(data || []);
+      if (error) {
+        console.error('Erro ao carregar barbeiros:', error);
+        toast.error('Erro ao carregar barbeiros: ' + error.message);
+      } else {
+        console.log('Barbeiros carregados:', data);
+        setBarbers(data || []);
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao carregar barbeiros:', error);
+      toast.error('Erro inesperado ao carregar barbeiros');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!form.name) {
+    if (!form.name.trim()) {
       toast.error('Nome é obrigatório');
       return;
     }
 
-    const barberData = {
-      name: form.name,
-      photo_url: form.photo_url || null,
-      barbershop_id: barbershopId,
-      is_active: true
-    };
-
-    let error;
-    if (editingBarber) {
-      const { error: updateError } = await supabase
-        .from('barbers')
-        .update(barberData)
-        .eq('id', editingBarber.id);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('barbers')
-        .insert([barberData]);
-      error = insertError;
+    if (!barbershopId) {
+      toast.error('ID da barbearia não encontrado');
+      return;
     }
 
-    if (error) {
-      console.error('Erro ao salvar barbeiro:', error);
-      toast.error('Erro ao salvar barbeiro');
-    } else {
-      toast.success(editingBarber ? 'Barbeiro atualizado!' : 'Barbeiro criado!');
-      setDialogOpen(false);
-      setEditingBarber(null);
-      setForm({ name: '', photo_url: '' });
-      loadBarbers();
+    setSubmitting(true);
+
+    try {
+      const barberData = {
+        name: form.name.trim(),
+        photo_url: form.photo_url.trim() || null,
+        barbershop_id: barbershopId,
+        is_active: true
+      };
+
+      console.log('Dados do barbeiro a serem salvos:', barberData);
+
+      let error;
+      if (editingBarber) {
+        const { error: updateError } = await supabase
+          .from('barbers')
+          .update({
+            name: barberData.name,
+            photo_url: barberData.photo_url
+          })
+          .eq('id', editingBarber.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('barbers')
+          .insert([barberData]);
+        error = insertError;
+      }
+
+      if (error) {
+        console.error('Erro ao salvar barbeiro:', error);
+        toast.error('Erro ao salvar barbeiro: ' + error.message);
+      } else {
+        toast.success(editingBarber ? 'Barbeiro atualizado!' : 'Barbeiro criado!');
+        setDialogOpen(false);
+        setEditingBarber(null);
+        setForm({ name: '', photo_url: '' });
+        await loadBarbers();
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao salvar barbeiro:', error);
+      toast.error('Erro inesperado ao salvar barbeiro');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -105,37 +136,58 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este barbeiro?')) return;
 
-    const { error } = await supabase
-      .from('barbers')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('barbers')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      console.error('Erro ao excluir barbeiro:', error);
-      toast.error('Erro ao excluir barbeiro');
-    } else {
-      toast.success('Barbeiro excluído!');
-      loadBarbers();
+      if (error) {
+        console.error('Erro ao excluir barbeiro:', error);
+        toast.error('Erro ao excluir barbeiro: ' + error.message);
+      } else {
+        toast.success('Barbeiro excluído!');
+        await loadBarbers();
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao excluir barbeiro:', error);
+      toast.error('Erro inesperado ao excluir barbeiro');
     }
   };
 
   const toggleActive = async (barber: Barber) => {
-    const { error } = await supabase
-      .from('barbers')
-      .update({ is_active: !barber.is_active })
-      .eq('id', barber.id);
+    try {
+      const { error } = await supabase
+        .from('barbers')
+        .update({ is_active: !barber.is_active })
+        .eq('id', barber.id);
 
-    if (error) {
-      console.error('Erro ao atualizar status:', error);
-      toast.error('Erro ao atualizar status');
-    } else {
-      toast.success(barber.is_active ? 'Barbeiro desativado' : 'Barbeiro ativado');
-      loadBarbers();
+      if (error) {
+        console.error('Erro ao atualizar status:', error);
+        toast.error('Erro ao atualizar status: ' + error.message);
+      } else {
+        toast.success(barber.is_active ? 'Barbeiro desativado' : 'Barbeiro ativado');
+        await loadBarbers();
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao atualizar status:', error);
+      toast.error('Erro inesperado ao atualizar status');
     }
   };
 
+  const resetForm = () => {
+    setEditingBarber(null);
+    setForm({ name: '', photo_url: '' });
+  };
+
   if (loading) {
-    return <div>Carregando barbeiros...</div>;
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center">Carregando barbeiros...</div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -146,12 +198,14 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
             <Users className="h-5 w-5" />
             Barbeiros
           </CardTitle>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              resetForm();
+            }
+          }}>
             <DialogTrigger asChild>
-              <Button onClick={() => {
-                setEditingBarber(null);
-                setForm({ name: '', photo_url: '' });
-              }}>
+              <Button onClick={resetForm}>
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Barbeiro
               </Button>
@@ -164,13 +218,14 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nome do Barbeiro</Label>
+                  <Label htmlFor="name">Nome do Barbeiro *</Label>
                   <Input
                     id="name"
                     value={form.name}
                     onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Ex: João Silva"
                     required
+                    disabled={submitting}
                   />
                 </div>
                 <div>
@@ -181,14 +236,25 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
                     value={form.photo_url}
                     onChange={(e) => setForm(prev => ({ ...prev, photo_url: e.target.value }))}
                     placeholder="https://exemplo.com/foto.jpg"
+                    disabled={submitting}
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Cole aqui o link de uma foto hospedada online
                   </p>
                 </div>
-                <Button type="submit" className="w-full">
-                  {editingBarber ? 'Atualizar' : 'Criar'} Barbeiro
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1" disabled={submitting}>
+                    {submitting ? 'Salvando...' : (editingBarber ? 'Atualizar' : 'Criar')} Barbeiro
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setDialogOpen(false)}
+                    disabled={submitting}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               </form>
             </DialogContent>
           </Dialog>
@@ -197,7 +263,9 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
       <CardContent>
         {barbers.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            Nenhum barbeiro cadastrado ainda.
+            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium mb-2">Nenhum barbeiro cadastrado</p>
+            <p className="text-sm">Adicione seu primeiro barbeiro para começar a receber agendamentos.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -206,7 +274,7 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={barber.photo_url} alt={barber.name} />
                   <AvatarFallback>
-                    <Image className="h-6 w-6" />
+                    {barber.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
