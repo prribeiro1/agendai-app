@@ -19,23 +19,28 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
 
   return (
     <div className="space-y-6">
-      {/* Status da Assinatura */}
+      {/* Status da Assinatura - Agora opcional */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Status da Assinatura
+            Status da Assinatura (Opcional)
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <Badge variant={isSubscriptionActive ? 'default' : 'destructive'}>
-                {isSubscriptionActive ? 'Ativo' : 'Inativo'}
+              <Badge variant={isSubscriptionActive ? 'default' : 'secondary'}>
+                {isSubscriptionActive ? 'Ativo' : 'Modo Teste - Grátis'}
               </Badge>
               {subscription?.current_period_end && (
                 <p className="text-sm text-gray-600 mt-2">
                   Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString('pt-BR')}
+                </p>
+              )}
+              {!isSubscriptionActive && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Você está no modo teste. Todas as funcionalidades estão disponíveis.
                 </p>
               )}
             </div>
@@ -131,21 +136,21 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         </div>
       )}
 
-      {!barbershop.is_active && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="p-6">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-orange-800 mb-2">
-                Assinatura Necessária
-              </h3>
-              <p className="text-orange-700 mb-4">
-                Para ativar sua barbearia e começar a receber agendamentos, você precisa de uma assinatura ativa.
-              </p>
-              <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Mensagem informativa sobre o modo teste */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="p-6">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-blue-800 mb-2">
+              🎉 Modo Teste Ativo
+            </h3>
+            <p className="text-blue-700 mb-4">
+              Todas as funcionalidades estão disponíveis gratuitamente para teste. 
+              Quando estiver satisfeito, você pode ativar a assinatura.
+            </p>
+            <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -33,14 +33,12 @@ const AuthLayout = () => {
         return;
       }
 
-      // Buscar o email do usuário na tabela auth.users
-      const { data: user, error: userError } = await supabase
-        .from('auth.users')
-        .select('email')
-        .eq('id', profile.id)
-        .single();
+      // Buscar o email do usuário usando a edge function
+      const { data: emailData, error: emailError } = await supabase.functions.invoke('get-user-email', {
+        body: { user_id: profile.id }
+      });
 
-      if (userError || !user) {
+      if (emailError || !emailData?.email) {
         toast.error('Erro ao buscar dados do usuário');
         setLoading(false);
         return;
@@ -48,7 +46,7 @@ const AuthLayout = () => {
 
       // Fazer login com email e senha
       const { error } = await supabase.auth.signInWithPassword({
-        email: user.email,
+        email: emailData.email,
         password,
       });
 

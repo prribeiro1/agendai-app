@@ -41,6 +41,14 @@ const DashboardLayout = () => {
     if (error && error.code !== 'PGRST116') {
       console.error('Erro ao carregar barbearia:', error);
     } else if (data) {
+      // Ativar automaticamente a barbearia no modo teste
+      if (!data.is_active) {
+        await supabase
+          .from('barbershops')
+          .update({ is_active: true })
+          .eq('id', data.id);
+        data.is_active = true;
+      }
       setBarbershop(data);
     }
     setLoading(false);
@@ -78,7 +86,7 @@ const DashboardLayout = () => {
               <div>
                 <h1 className="text-xl font-bold">{barbershop.name}</h1>
                 <p className="text-sm text-gray-500">
-                  {barbershop.is_active ? 'Ativo' : 'Inativo - Assinatura necessária'}
+                  Ativo - Modo Teste
                 </p>
               </div>
             </div>
