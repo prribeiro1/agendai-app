@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, ExternalLink, Users, Calendar, Settings } from 'lucide-react';
+import { CreditCard, ExternalLink, Users, Calendar, Settings, Scissors } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
+import { ServicesManager } from './ServicesManager';
+import { BarbersManager } from './BarbersManager';
 
 interface BarbershopDashboardProps {
   barbershop: any;
@@ -87,6 +89,20 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           Visão Geral
         </Button>
         <Button 
+          variant={activeTab === 'services' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('services')}
+        >
+          <Scissors className="h-4 w-4 mr-2" />
+          Serviços
+        </Button>
+        <Button 
+          variant={activeTab === 'barbers' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('barbers')}
+        >
+          <Users className="h-4 w-4 mr-2" />
+          Barbeiros
+        </Button>
+        <Button 
           variant={activeTab === 'settings' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('settings')}
         >
@@ -136,21 +152,30 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         </div>
       )}
 
-      {/* Mensagem informativa sobre o modo teste */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="p-6">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-blue-800 mb-2">
-              🎉 Modo Teste Ativo
-            </h3>
-            <p className="text-blue-700 mb-4">
-              Todas as funcionalidades estão disponíveis gratuitamente para teste. 
-              Quando estiver satisfeito, você pode ativar a assinatura.
-            </p>
-            <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
-          </div>
-        </CardContent>
-      </Card>
+      {activeTab === 'services' && (
+        <ServicesManager barbershopId={barbershop.id} />
+      )}
+
+      {activeTab === 'barbers' && (
+        <BarbersManager barbershopId={barbershop.id} />
+      )}
+
+      {activeTab === 'settings' && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                🎉 Modo Teste Ativo
+              </h3>
+              <p className="text-blue-700 mb-4">
+                Todas as funcionalidades estão disponíveis gratuitamente para teste. 
+                Quando estiver satisfeito, você pode ativar a assinatura.
+              </p>
+              <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

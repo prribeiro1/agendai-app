@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,14 +100,31 @@ const BookingPage = () => {
     
     if (!barbershop) return;
 
+    // Validar campos obrigatórios
+    if (!form.service_id || !form.barber_id || !form.appointment_time || !form.client_name || !form.client_phone) {
+      toast.error('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Preparar dados para inserção, garantindo que UUIDs vazios sejam null
+    const appointmentData = {
+      barbershop_id: barbershop.id,
+      service_id: form.service_id || null,
+      barber_id: form.barber_id || null,
+      appointment_date: form.appointment_date,
+      appointment_time: form.appointment_time,
+      client_name: form.client_name,
+      client_phone: form.client_phone,
+      client_email: form.client_email || null,
+      notes: form.notes || null
+    };
+
     const { error } = await supabase
       .from('appointments')
-      .insert([{
-        ...form,
-        barbershop_id: barbershop.id
-      }]);
+      .insert([appointmentData]);
 
     if (error) {
+      console.error('Erro ao agendar:', error);
       toast.error('Erro ao agendar: ' + error.message);
     } else {
       toast.success('Agendamento realizado com sucesso!');
@@ -195,7 +211,7 @@ const BookingPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label htmlFor="service">Serviço *</Label>
-                  <Select value={form.service_id} onValueChange={(value) => handleInputChange('service_id', value)}>
+                  <Select value={form.service_id} onValueChange={(value) => handleInputChange('service_id', value)} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um serviço" />
                     </SelectTrigger>
@@ -216,7 +232,7 @@ const BookingPage = () => {
 
                 <div>
                   <Label htmlFor="barber">Barbeiro *</Label>
-                  <Select value={form.barber_id} onValueChange={(value) => handleInputChange('barber_id', value)}>
+                  <Select value={form.barber_id} onValueChange={(value) => handleInputChange('barber_id', value)} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um barbeiro" />
                     </SelectTrigger>
@@ -246,7 +262,7 @@ const BookingPage = () => {
 
                 <div>
                   <Label htmlFor="time">Horário *</Label>
-                  <Select value={form.appointment_time} onValueChange={(value) => handleInputChange('appointment_time', value)}>
+                  <Select value={form.appointment_time} onValueChange={(value) => handleInputChange('appointment_time', value)} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um horário" />
                     </SelectTrigger>
