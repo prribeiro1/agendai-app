@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -17,126 +16,133 @@ export const BarbershopSetup: React.FC<BarbershopSetupProps> = ({ onSetup }) => 
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
-    slug: '',
     phone: '',
-    address: '',
-    description: ''
+    address: ''
   });
 
-  const handleInputChange = (field: string, value: string) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    
-    // Auto-generate slug from name
-    if (field === 'name') {
-      const slug = value
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .trim();
-      setForm(prev => ({ ...prev, slug }));
-    }
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) {
-      toast.error('Usuário não autenticado');
-      setLoading(false);
+    
+    if (!form.name.trim()) {
+      toast.error('Nome da barbearia é obrigatório');
       return;
     }
 
-    const { error } = await supabase
-      .from('barbershops')
-      .insert([{
-        ...form,
-        owner_id: user.user.id
-      }]);
+    setLoading(true);
 
-    if (error) {
-      toast.error('Erro ao criar barbearia: ' + error.message);
-    } else {
+    try {
+      // Obter o usuário atual
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        toast.error('Erro de autenticação. Faça login novamente.');
+        return;
+      }
+
+      const slug = generateSlug(form.name);
+
+      // Verificar se o slug já existe
+      const { data: existingBarbershop } = await supabase
+        .from('barbershops')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+
+      if (existingBarbershop) {
+        toast.error('Já existe uma barbearia com este nome. Escolha outro nome.');
+        return;
+      }
+
+      // Criar a barbearia com o owner_id definido
+      const { data, error } = await supabase
+        .from('barbershops')
+        .insert([
+          {
+            name: form.name.trim(),
+            slug: slug,
+            phone: form.phone.trim() || null,
+            address: form.address.trim() || null,
+            owner_id: user.id, // Importante: definir o owner_id
+            is_active: true
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao criar barbearia:', error);
+        toast.error('Erro ao criar barbearia: ' + error.message);
+        return;
+      }
+
+      console.log('Barbearia criada com sucesso:', data);
       toast.success('Barbearia criada com sucesso!');
       onSetup();
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast.error('Erro inesperado ao criar barbearia');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Scissors className="h-8 w-8 text-blue-600" />
-            <CardTitle className="text-2xl">Configure sua Barbearia</CardTitle>
+          <div className="flex justify-center mb-4">
+            <Scissors className="h-12 w-12 text-blue-600" />
           </div>
+          <CardTitle>Configure sua Barbearia</CardTitle>
           <p className="text-gray-600">
-            Configure os dados da sua barbearia para começar a receber agendamentos
+            Vamos configurar os dados básicos da sua barbearia
           </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="name">Nome da Barbearia *</Label>
-                <Input
-                  id="name"
-                  value={form.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Ex: Barbearia do João"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="slug">URL Personalizada *</Label>
-                <Input
-                  id="slug"
-                  value={form.slug}
-                  onChange={(e) => handleInputChange('slug', e.target.value)}
-                  placeholder="barbearia-do-joao"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Seus clientes acessarão: agendai.com/{form.slug}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  value={form.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="(11) 99999-9999"
-                />
-              </div>
-              <div>
-                <Label htmlFor="address">Endereço</Label>
-                <Input
-                  id="address"
-                  value={form.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  placeholder="Rua da Barbearia, 123"
-                />
-              </div>
-            </div>
-
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea
-                id="description"
-                value={form.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Descreva sua barbearia..."
+              <Label htmlFor="name">Nome da Barbearia *</Label>
+              <Input
+                id="name"
+                value={form.name}
+                onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Ex: Barbearia do João"
+                required
+                disabled={loading}
               />
             </div>
-
-            <Button type="submit" className="w-full h-12 text-lg" disabled={loading}>
+            <div>
+              <Label htmlFor="phone">Telefone</Label>
+              <Input
+                id="phone"
+                value={form.phone}
+                onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="Ex: (11) 99999-9999"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <Label htmlFor="address">Endereço</Label>
+              <Input
+                id="address"
+                value={form.address}
+                onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Ex: Rua das Flores, 123"
+                disabled={loading}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Criando...' : 'Criar Barbearia'}
             </Button>
           </form>

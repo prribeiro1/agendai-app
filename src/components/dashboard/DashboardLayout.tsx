@@ -12,6 +12,7 @@ interface Barbershop {
   name: string;
   slug: string;
   is_active: boolean;
+  owner_id: string;
   subscriptions: Array<{
     status: string;
     current_period_end: string;
@@ -27,31 +28,60 @@ const DashboardLayout = () => {
   }, []);
 
   const loadBarbershop = async () => {
-    const { data, error } = await supabase
-      .from('barbershops')
-      .select(`
-        id,
-        name,
-        slug,
-        is_active,
-        subscriptions(status, current_period_end)
-      `)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Erro ao carregar barbearia:', error);
-    } else if (data) {
-      // Ativar automaticamente a barbearia no modo teste
-      if (!data.is_active) {
-        await supabase
-          .from('barbershops')
-          .update({ is_active: true })
-          .eq('id', data.id);
-        data.is_active = true;
+    try {
+      // Verificar se o usuário está autenticado
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error('Usuário não autenticado:', userError);
+        setLoading(false);
+        return;
       }
-      setBarbershop(data);
+
+      console.log('Usuário autenticado:', user.id);
+
+      // Buscar barbearia do usuário atual
+      const { data, error } = await supabase
+        .from('barbershops')
+        .select(`
+          id,
+          name,
+          slug,
+          is_active,
+          owner_id,
+          subscriptions(status, current_period_end)
+        `)
+        .eq('owner_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao carregar barbearia:', error);
+        toast.error('Erro ao carregar barbearia: ' + error.message);
+      } else if (data) {
+        console.log('Barbearia carregada:', data);
+        // Ativar automaticamente a barbearia no modo teste
+        if (!data.is_active) {
+          const { error: updateError } = await supabase
+            .from('barbershops')
+            .update({ is_active: true })
+            .eq('id', data.id);
+          
+          if (updateError) {
+            console.error('Erro ao ativar barbearia:', updateError);
+          } else {
+            data.is_active = true;
+          }
+        }
+        setBarbershop(data);
+      } else {
+        console.log('Nenhuma barbearia encontrada para o usuário');
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao carregar barbearia:', error);
+      toast.error('Erro inesperado ao carregar dados');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleLogout = async () => {

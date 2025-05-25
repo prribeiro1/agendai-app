@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,6 +90,13 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           Visão Geral
         </Button>
         <Button 
+          variant={activeTab === 'appointments' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('appointments')}
+        >
+          <Calendar className="h-4 w-4 mr-2" />
+          Agendamentos
+        </Button>
+        <Button 
           variant={activeTab === 'services' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('services')}
         >
@@ -150,6 +158,10 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {activeTab === 'appointments' && (
+        <AppointmentsManager barbershopId={barbershop.id} />
       )}
 
       {activeTab === 'services' && (
