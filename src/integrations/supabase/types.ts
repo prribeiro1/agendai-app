@@ -86,6 +86,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          photo_url: string | null
         }
         Insert: {
           barbershop_id?: string | null
@@ -93,6 +94,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          photo_url?: string | null
         }
         Update: {
           barbershop_id?: string | null
@@ -100,6 +102,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          photo_url?: string | null
         }
         Relationships: [
           {
