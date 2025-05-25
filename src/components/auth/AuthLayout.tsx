@@ -20,15 +20,26 @@ const AuthLayout = () => {
     setLoading(true);
     
     try {
+      console.log('Tentando fazer login com telefone:', phone);
+      
       // Buscar o usuário pelo telefone na tabela profiles
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
         .eq('phone', phone)
-        .single();
+        .maybeSingle();
 
-      if (profileError || !profile) {
-        toast.error('Telefone não encontrado');
+      console.log('Resultado da busca do perfil:', { profile, profileError });
+
+      if (profileError) {
+        console.error('Erro ao buscar perfil:', profileError);
+        toast.error('Erro ao verificar dados do usuário');
+        setLoading(false);
+        return;
+      }
+
+      if (!profile) {
+        toast.error('Telefone não cadastrado. Faça seu cadastro primeiro.');
         setLoading(false);
         return;
       }
@@ -38,24 +49,40 @@ const AuthLayout = () => {
         body: { user_id: profile.id }
       });
 
+      console.log('Resultado da busca do email:', { emailData, emailError });
+
       if (emailError || !emailData?.email) {
-        toast.error('Erro ao buscar dados do usuário');
-        setLoading(false);
-        return;
-      }
+        console.error('Erro ao buscar email:', emailError);
+        // Fallback: tentar login direto com email temporário
+        const tempEmail = `${phone.replace(/\D/g, '')}@temp.agendai.com`;
+        
+        const { error: directLoginError } = await supabase.auth.signInWithPassword({
+          email: tempEmail,
+          password,
+        });
 
-      // Fazer login com email e senha
-      const { error } = await supabase.auth.signInWithPassword({
-        email: emailData.email,
-        password,
-      });
-
-      if (error) {
-        toast.error('Erro ao fazer login: ' + error.message);
+        if (directLoginError) {
+          console.error('Erro no login direto:', directLoginError);
+          toast.error('Senha incorreta ou erro no login');
+        } else {
+          toast.success('Login realizado com sucesso!');
+        }
       } else {
-        toast.success('Login realizado com sucesso!');
+        // Fazer login com email e senha
+        const { error } = await supabase.auth.signInWithPassword({
+          email: emailData.email,
+          password,
+        });
+
+        if (error) {
+          console.error('Erro no login com email:', error);
+          toast.error('Senha incorreta');
+        } else {
+          toast.success('Login realizado com sucesso!');
+        }
       }
     } catch (error) {
+      console.error('Erro inesperado ao fazer login:', error);
       toast.error('Erro inesperado ao fazer login');
     }
     
@@ -67,23 +94,37 @@ const AuthLayout = () => {
     setLoading(true);
     
     try {
+      console.log('Tentando criar conta com:', { name, phone });
+      
       // Verificar se o telefone já está em uso
-      const { data: existingProfile } = await supabase
+      const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
         .select('id')
         .eq('phone', phone)
-        .single();
+        .maybeSingle();
+
+      console.log('Verificação de telefone existente:', { existingProfile, checkError });
+
+      if (checkError) {
+        console.error('Erro ao verificar telefone:', checkError);
+        toast.error('Erro ao verificar dados');
+        setLoading(false);
+        return;
+      }
 
       if (existingProfile) {
-        toast.error('Este telefone já está cadastrado');
+        toast.error('Este telefone já está cadastrado. Faça login.');
         setLoading(false);
         return;
       }
 
       // Criar um email temporário baseado no telefone
-      const tempEmail = `${phone.replace(/\D/g, '')}@temp.agendai.com`;
+      const cleanPhone = phone.replace(/\D/g, '');
+      const tempEmail = `${cleanPhone}@temp.agendai.com`;
 
-      const { error } = await supabase.auth.signUp({
+      console.log('Criando usuário com email temporário:', tempEmail);
+
+      const { data: authData, error } = await supabase.auth.signUp({
         email: tempEmail,
         password,
         options: {
@@ -94,12 +135,20 @@ const AuthLayout = () => {
         }
       });
 
+      console.log('Resultado da criação de usuário:', { authData, error });
+
       if (error) {
-        toast.error('Erro ao criar conta: ' + error.message);
+        console.error('Erro ao criar conta:', error);
+        if (error.message.includes('User already registered')) {
+          toast.error('Este telefone já está cadastrado. Tente fazer login.');
+        } else {
+          toast.error('Erro ao criar conta: ' + error.message);
+        }
       } else {
         toast.success('Conta criada com sucesso!');
       }
     } catch (error) {
+      console.error('Erro inesperado ao criar conta:', error);
       toast.error('Erro inesperado ao criar conta');
     }
     

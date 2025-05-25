@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,7 @@ import { CreditCard, ExternalLink, Users, Calendar, Settings, Scissors } from 'l
 import { SubscriptionManager } from './SubscriptionManager';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
+import { AppointmentsManager } from './AppointmentsManager';
 
 interface BarbershopDashboardProps {
   barbershop: any;
