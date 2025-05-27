@@ -181,13 +181,6 @@ const BookingPage = () => {
       return;
     }
 
-    // Verificar novamente se o horário ainda está disponível
-    if (!availableTimeSlots.includes(form.appointment_time)) {
-      toast.error('Este horário não está mais disponível. Escolha outro horário.');
-      await checkAvailableTimeSlots();
-      return;
-    }
-
     setSubmitting(true);
 
     try {
