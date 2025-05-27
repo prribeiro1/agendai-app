@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,17 +8,84 @@ import { SubscriptionManager } from './SubscriptionManager';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
 import { AppointmentsManager } from './AppointmentsManager';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BarbershopDashboardProps {
   barbershop: any;
   onUpdate: () => void;
 }
 
+interface AppointmentStats {
+  todayCount: number;
+  monthCount: number;
+  estimatedRevenue: number;
+}
+
 export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barbershop, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [stats, setStats] = useState<AppointmentStats>({
+    todayCount: 0,
+    monthCount: 0,
+    estimatedRevenue: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
 
   const subscription = barbershop.subscriptions?.[0];
   const isSubscriptionActive = subscription?.status === 'active';
+
+  useEffect(() => {
+    if (barbershop?.id) {
+      loadStats();
+    }
+  }, [barbershop?.id]);
+
+  const loadStats = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+      const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+
+      // Buscar agendamentos de hoje
+      const { data: todayAppointments, error: todayError } = await supabase
+        .from('appointments')
+        .select('id, services(price)')
+        .eq('barbershop_id', barbershop.id)
+        .eq('appointment_date', today);
+
+      if (todayError) {
+        console.error('Erro ao carregar agendamentos de hoje:', todayError);
+      }
+
+      // Buscar agendamentos do mês
+      const { data: monthAppointments, error: monthError } = await supabase
+        .from('appointments')
+        .select('id, services(price)')
+        .eq('barbershop_id', barbershop.id)
+        .gte('appointment_date', startOfMonth)
+        .lte('appointment_date', endOfMonth);
+
+      if (monthError) {
+        console.error('Erro ao carregar agendamentos do mês:', monthError);
+      }
+
+      // Calcular estatísticas
+      const todayCount = todayAppointments?.length || 0;
+      const monthCount = monthAppointments?.length || 0;
+      const estimatedRevenue = monthAppointments?.reduce((total, appointment) => {
+        return total + (appointment.services?.price || 0);
+      }, 0) || 0;
+
+      setStats({
+        todayCount,
+        monthCount,
+        estimatedRevenue
+      });
+    } catch (error) {
+      console.error('Erro inesperado ao carregar estatísticas:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -83,13 +150,6 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
       {/* Navegação */}
       <div className="flex gap-2 border-b">
         <Button 
-          variant={activeTab === 'overview' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('overview')}
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Visão Geral
-        </Button>
-        <Button 
           variant={activeTab === 'appointments' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('appointments')}
         >
@@ -120,48 +180,55 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
       </div>
 
       {/* Conteúdo das abas */}
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Agendamentos Hoje</p>
-                  <p className="text-2xl font-bold text-blue-600">0</p>
-                </div>
-                <Calendar className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total do Mês</p>
-                  <p className="text-2xl font-bold text-green-600">0</p>
-                </div>
-                <Users className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Receita Estimada</p>
-                  <p className="text-2xl font-bold text-purple-600">R$ 0</p>
-                </div>
-                <CreditCard className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {activeTab === 'appointments' && (
-        <AppointmentsManager barbershopId={barbershop.id} />
+        <div className="space-y-6">
+          {/* Estatísticas dos agendamentos */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Agendamentos Hoje</p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {loadingStats ? '...' : stats.todayCount}
+                    </p>
+                  </div>
+                  <Calendar className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total do Mês</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {loadingStats ? '...' : stats.monthCount}
+                    </p>
+                  </div>
+                  <Users className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Receita Estimada</p>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {loadingStats ? '...' : `R$ ${stats.estimatedRevenue.toFixed(2)}`}
+                    </p>
+                  </div>
+                  <CreditCard className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <AppointmentsManager barbershopId={barbershop.id} />
+        </div>
       )}
 
       {activeTab === 'services' && (

@@ -44,42 +44,27 @@ const AuthLayout = () => {
         return;
       }
 
-      // Buscar o email do usuário usando a edge function
-      const { data: emailData, error: emailError } = await supabase.functions.invoke('get-user-email', {
-        body: { user_id: profile.id }
+      // Criar email temporário baseado no telefone
+      const cleanPhone = phone.replace(/\D/g, '');
+      const tempEmail = `${cleanPhone}@temp.agendai.com`;
+      
+      console.log('Tentando login com email:', tempEmail);
+
+      // Fazer login com email e senha
+      const { error } = await supabase.auth.signInWithPassword({
+        email: tempEmail,
+        password,
       });
 
-      console.log('Resultado da busca do email:', { emailData, emailError });
-
-      if (emailError || !emailData?.email) {
-        console.error('Erro ao buscar email:', emailError);
-        // Fallback: tentar login direto com email temporário
-        const tempEmail = `${phone.replace(/\D/g, '')}@temp.agendai.com`;
-        
-        const { error: directLoginError } = await supabase.auth.signInWithPassword({
-          email: tempEmail,
-          password,
-        });
-
-        if (directLoginError) {
-          console.error('Erro no login direto:', directLoginError);
-          toast.error('Senha incorreta ou erro no login');
-        } else {
-          toast.success('Login realizado com sucesso!');
-        }
-      } else {
-        // Fazer login com email e senha
-        const { error } = await supabase.auth.signInWithPassword({
-          email: emailData.email,
-          password,
-        });
-
-        if (error) {
-          console.error('Erro no login com email:', error);
+      if (error) {
+        console.error('Erro no login:', error);
+        if (error.message.includes('Invalid login credentials')) {
           toast.error('Senha incorreta');
         } else {
-          toast.success('Login realizado com sucesso!');
+          toast.error('Erro ao fazer login: ' + error.message);
         }
+      } else {
+        toast.success('Login realizado com sucesso!');
       }
     } catch (error) {
       console.error('Erro inesperado ao fazer login:', error);
@@ -144,8 +129,27 @@ const AuthLayout = () => {
         } else {
           toast.error('Erro ao criar conta: ' + error.message);
         }
-      } else {
-        toast.success('Conta criada com sucesso!');
+      } else if (authData.user) {
+        // Criar perfil imediatamente após criação do usuário
+        console.log('Criando perfil para usuário:', authData.user.id);
+        
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: authData.user.id,
+              name: name,
+              phone: phone
+            }
+          ]);
+
+        if (profileError) {
+          console.error('Erro ao criar perfil:', profileError);
+          toast.error('Erro ao criar perfil do usuário');
+        } else {
+          console.log('Perfil criado com sucesso');
+          toast.success('Conta criada com sucesso! Você já pode fazer login.');
+        }
       }
     } catch (error) {
       console.error('Erro inesperado ao criar conta:', error);

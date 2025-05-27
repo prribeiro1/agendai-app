@@ -47,7 +47,42 @@ export const BarbershopSetup: React.FC<BarbershopSetupProps> = ({ onSetup }) => 
       
       if (userError || !user) {
         toast.error('Erro de autenticação. Faça login novamente.');
+        setLoading(false);
         return;
+      }
+
+      console.log('Usuário atual:', user.id);
+
+      // Verificar se o perfil existe, se não existir, criar
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Erro ao verificar perfil:', profileError);
+      }
+
+      if (!profile) {
+        console.log('Criando perfil para o usuário:', user.id);
+        // Criar o perfil se não existir
+        const { error: createProfileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: user.id,
+              name: user.user_metadata?.name || 'Usuário',
+              phone: user.user_metadata?.phone || ''
+            }
+          ]);
+
+        if (createProfileError) {
+          console.error('Erro ao criar perfil:', createProfileError);
+          toast.error('Erro ao criar perfil do usuário');
+          setLoading(false);
+          return;
+        }
       }
 
       const slug = generateSlug(form.name);
@@ -57,10 +92,11 @@ export const BarbershopSetup: React.FC<BarbershopSetupProps> = ({ onSetup }) => 
         .from('barbershops')
         .select('id')
         .eq('slug', slug)
-        .single();
+        .maybeSingle();
 
       if (existingBarbershop) {
         toast.error('Já existe uma barbearia com este nome. Escolha outro nome.');
+        setLoading(false);
         return;
       }
 
@@ -73,7 +109,7 @@ export const BarbershopSetup: React.FC<BarbershopSetupProps> = ({ onSetup }) => 
             slug: slug,
             phone: form.phone.trim() || null,
             address: form.address.trim() || null,
-            owner_id: user.id, // Importante: definir o owner_id
+            owner_id: user.id,
             is_active: true
           }
         ])
@@ -83,6 +119,7 @@ export const BarbershopSetup: React.FC<BarbershopSetupProps> = ({ onSetup }) => 
       if (error) {
         console.error('Erro ao criar barbearia:', error);
         toast.error('Erro ao criar barbearia: ' + error.message);
+        setLoading(false);
         return;
       }
 
