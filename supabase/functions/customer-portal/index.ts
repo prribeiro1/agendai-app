@@ -14,8 +14,17 @@ serve(async (req) => {
   }
 
   try {
-    // Configurar cliente Supabase e Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    console.log("=== CUSTOMER PORTAL STARTED ===");
+    
+    // Configurar cliente Stripe
+    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+    console.log("Stripe key available:", !!stripeSecretKey);
+    
+    if (!stripeSecretKey) {
+      throw new Error("STRIPE_SECRET_KEY não configurada");
+    }
+
+    const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2022-11-15",
       httpClient: Stripe.createFetchHttpClient(),
     });
@@ -35,6 +44,8 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Usuário autenticado:", user.email);
 
     // Verificar se o usuário tem uma barbearia com assinatura
     const { data: barbershop } = await supabase
@@ -63,11 +74,15 @@ serve(async (req) => {
       );
     }
 
+    console.log("Cliente Stripe encontrado:", customerId);
+
     // Criar sessão para o portal do cliente
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: req.headers.get("origin"),
+      return_url: req.headers.get("origin") || `${req.headers.get("origin")}/`,
     });
+
+    console.log("Sessão do portal criada:", session.id);
 
     return new Response(
       JSON.stringify({ url: session.url }),

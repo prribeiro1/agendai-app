@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, ExternalLink, Users, Calendar, Settings, Scissors } from 'lucide-react';
+import { CreditCard, ExternalLink, Users, Calendar, Settings, Scissors, CheckCircle } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
@@ -89,29 +89,38 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
 
   return (
     <div className="space-y-6">
-      {/* Status da Assinatura - Agora opcional */}
-      <Card>
+      {/* Status da Assinatura - Com feedback melhorado */}
+      <Card className={isSubscriptionActive ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Status da Assinatura (Opcional)
+            {isSubscriptionActive ? (
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            ) : (
+              <CreditCard className="h-5 w-5 text-blue-600" />
+            )}
+            {isSubscriptionActive ? 'Assinatura Ativa' : 'Modo Teste Gratuito'}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
-              <Badge variant={isSubscriptionActive ? 'default' : 'secondary'}>
-                {isSubscriptionActive ? 'Ativo' : 'Modo Teste - Grátis'}
+              <Badge variant={isSubscriptionActive ? 'default' : 'secondary'} className="mb-2">
+                {isSubscriptionActive ? 'Plano Premium Ativo' : 'Modo Teste - Grátis'}
               </Badge>
-              {subscription?.current_period_end && (
-                <p className="text-sm text-gray-600 mt-2">
+              
+              {subscription?.current_period_end && isSubscriptionActive ? (
+                <p className="text-sm text-gray-600">
                   Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString('pt-BR')}
                 </p>
-              )}
-              {!isSubscriptionActive && (
-                <p className="text-sm text-gray-600 mt-2">
-                  Você está no modo teste. Todas as funcionalidades estão disponíveis.
-                </p>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-600">
+                    Você está usando o modo teste gratuito.
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Todas as funcionalidades estão disponíveis. Assine para suporte prioritário.
+                  </p>
+                </div>
               )}
             </div>
             <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
@@ -128,30 +137,35 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 mb-3">
                 Compartilhe este link com seus clientes para que possam agendar online:
               </p>
-              <p className="font-mono text-sm bg-gray-100 p-2 rounded mt-2">
-                {window.location.origin}/agendar/{barbershop.slug}
-              </p>
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="font-mono text-sm break-all">
+                  {window.location.origin}/agendar/{barbershop.slug}
+                </p>
+              </div>
             </div>
             <Button 
               onClick={() => window.open(`/agendar/${barbershop.slug}`, '_blank')}
               variant="outline"
+              className="w-full lg:w-auto"
             >
-              Abrir
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Abrir Página
             </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Navegação */}
-      <div className="flex gap-2 border-b">
+      <div className="flex flex-wrap gap-2 border-b">
         <Button 
           variant={activeTab === 'appointments' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('appointments')}
+          size="sm"
         >
           <Calendar className="h-4 w-4 mr-2" />
           Agendamentos
@@ -159,6 +173,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         <Button 
           variant={activeTab === 'services' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('services')}
+          size="sm"
         >
           <Scissors className="h-4 w-4 mr-2" />
           Serviços
@@ -166,6 +181,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         <Button 
           variant={activeTab === 'barbers' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('barbers')}
+          size="sm"
         >
           <Users className="h-4 w-4 mr-2" />
           Barbeiros
@@ -173,6 +189,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         <Button 
           variant={activeTab === 'settings' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('settings')}
+          size="sm"
         >
           <Settings className="h-4 w-4 mr-2" />
           Configurações
@@ -242,14 +259,18 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
       {activeTab === 'settings' && (
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-6">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-blue-800 mb-2">
-                🎉 Modo Teste Ativo
-              </h3>
-              <p className="text-blue-700 mb-4">
-                Todas as funcionalidades estão disponíveis gratuitamente para teste. 
-                Quando estiver satisfeito, você pode ativar a assinatura.
-              </p>
+            <div className="text-center space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                  🎉 {isSubscriptionActive ? 'Assinatura Premium Ativa' : 'Modo Teste Ativo'}
+                </h3>
+                <p className="text-blue-700 mb-4">
+                  {isSubscriptionActive 
+                    ? 'Você tem acesso completo a todas as funcionalidades e suporte prioritário.'
+                    : 'Todas as funcionalidades estão disponíveis gratuitamente para teste. Quando estiver satisfeito, você pode ativar a assinatura.'
+                  }
+                </p>
+              </div>
               <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
             </div>
           </CardContent>

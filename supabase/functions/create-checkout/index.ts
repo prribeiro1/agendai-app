@@ -14,8 +14,17 @@ serve(async (req) => {
   }
 
   try {
-    // Configurar cliente Supabase e Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    console.log("=== CREATE CHECKOUT STARTED ===");
+    
+    // Configurar cliente Stripe com chave correta
+    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+    console.log("Stripe key available:", !!stripeSecretKey);
+    
+    if (!stripeSecretKey) {
+      throw new Error("STRIPE_SECRET_KEY não configurada");
+    }
+
+    const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2022-11-15",
       httpClient: Stripe.createFetchHttpClient(),
     });
@@ -35,6 +44,8 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Usuário autenticado:", user.email);
 
     // Verificar se o usuário já possui uma barbearia
     const { data: barbershop } = await supabase
@@ -57,11 +68,15 @@ serve(async (req) => {
       );
     }
 
+    console.log("Barbearia encontrada:", barbershop.name);
+
     let customerId;
     if (barbershop.subscriptions && barbershop.subscriptions.length > 0 && barbershop.subscriptions[0]?.stripe_customer_id) {
       customerId = barbershop.subscriptions[0].stripe_customer_id;
+      console.log("Cliente Stripe existente:", customerId);
     } else {
       // Criar cliente no Stripe se não existir
+      console.log("Criando novo cliente no Stripe");
       const customer = await stripe.customers.create({
         email: user.email,
         name: barbershop.name,
@@ -71,6 +86,7 @@ serve(async (req) => {
         },
       });
       customerId = customer.id;
+      console.log("Cliente criado:", customerId);
 
       // Atualizar ou criar registro de assinatura
       await supabase
@@ -84,6 +100,7 @@ serve(async (req) => {
     }
 
     // Criar sessão Stripe para assinatura
+    console.log("Criando sessão de checkout");
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
@@ -106,7 +123,13 @@ serve(async (req) => {
       mode: "subscription",
       success_url: `${req.headers.get("origin")}?success=true`,
       cancel_url: `${req.headers.get("origin")}?canceled=true`,
+      metadata: {
+        barbershopId: barbershop.id,
+        userId: user.id,
+      },
     });
+
+    console.log("Sessão criada com sucesso:", session.id);
 
     return new Response(JSON.stringify({ url: session.url }), {
       status: 200,

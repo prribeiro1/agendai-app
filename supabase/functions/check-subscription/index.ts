@@ -14,8 +14,17 @@ serve(async (req) => {
   }
 
   try {
-    // Configurar cliente Supabase e Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    console.log("=== CHECK SUBSCRIPTION STARTED ===");
+    
+    // Configurar cliente Stripe
+    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+    console.log("Stripe key available:", !!stripeSecretKey);
+    
+    if (!stripeSecretKey) {
+      throw new Error("STRIPE_SECRET_KEY não configurada");
+    }
+
+    const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2022-11-15",
       httpClient: Stripe.createFetchHttpClient(),
     });
@@ -42,6 +51,8 @@ serve(async (req) => {
       );
     }
 
+    console.log("Usuário verificado:", user.email);
+
     // Verificar se o usuário já possui uma barbearia
     const { data: barbershop } = await supabase
       .from("barbershops")
@@ -65,8 +76,11 @@ serve(async (req) => {
       );
     }
 
+    console.log("Barbearia encontrada:", barbershop.name);
+
     // Se não tem assinatura, retorna não assinado
     if (!barbershop.subscriptions || barbershop.subscriptions.length === 0 || !barbershop.subscriptions[0]?.stripe_customer_id) {
+      console.log("Nenhuma assinatura encontrada");
       return new Response(
         JSON.stringify({ subscribed: false }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -75,35 +89,47 @@ serve(async (req) => {
 
     const subscriptionRecord = barbershop.subscriptions[0];
     const customerId = subscriptionRecord.stripe_customer_id;
+    console.log("Cliente Stripe encontrado:", customerId);
 
     // Verificar assinatura ativa no Stripe
     let isActive = false;
     let subscriptionEnd = null;
     let stripeSubscriptionId = subscriptionRecord.stripe_subscription_id;
 
-    if (stripeSubscriptionId) {
-      // Usar ID de assinatura existente
-      const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-      isActive = subscription.status === "active";
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-    } else {
-      // Buscar por assinaturas deste cliente
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "active",
-        limit: 1,
-      });
-
-      if (subscriptions.data.length > 0) {
-        const subscription = subscriptions.data[0];
-        isActive = true;
-        stripeSubscriptionId = subscription.id;
+    try {
+      if (stripeSubscriptionId) {
+        // Usar ID de assinatura existente
+        console.log("Verificando assinatura existente:", stripeSubscriptionId);
+        const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+        isActive = subscription.status === "active";
         subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        console.log("Status da assinatura:", subscription.status);
+      } else {
+        // Buscar por assinaturas deste cliente
+        console.log("Buscando assinaturas para o cliente");
+        const subscriptions = await stripe.subscriptions.list({
+          customer: customerId,
+          status: "active",
+          limit: 1,
+        });
+
+        if (subscriptions.data.length > 0) {
+          const subscription = subscriptions.data[0];
+          isActive = true;
+          stripeSubscriptionId = subscription.id;
+          subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+          console.log("Assinatura ativa encontrada:", subscription.id);
+        }
       }
+    } catch (stripeError) {
+      console.error("Erro ao verificar no Stripe:", stripeError);
+      // Em caso de erro no Stripe, considerar como não ativo
+      isActive = false;
     }
 
     // Atualizar registro no Supabase
     if (isActive) {
+      console.log("Atualizando como ativa");
       await supabase.from("subscriptions").update({
         status: "active",
         stripe_subscription_id: stripeSubscriptionId,
@@ -117,18 +143,21 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", barbershop.id);
     } else if (subscriptionRecord.status === "active") {
+      console.log("Desativando assinatura");
       // Desativar assinatura se estava ativa e não está mais
       await supabase.from("subscriptions").update({
         status: "inactive",
         updated_at: new Date().toISOString(),
       }).eq("id", subscriptionRecord.id);
 
-      // Desativar a barbearia
+      // Manter a barbearia ativa no modo teste
       await supabase.from("barbershops").update({
-        is_active: false,
+        is_active: true,
         updated_at: new Date().toISOString(),
       }).eq("id", barbershop.id);
     }
+
+    console.log("Resultado final - subscribed:", isActive);
 
     return new Response(
       JSON.stringify({ 
