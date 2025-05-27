@@ -104,7 +104,9 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    // Corrigir problema da data aparecer um dia antes
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('pt-BR');
   };
 
   const formatTime = (timeString: string) => {
@@ -129,7 +131,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
   );
 
   const upcomingAppointments = appointments.filter(
-    appt => new Date(appt.appointment_date) > new Date(new Date().toISOString().split('T')[0])
+    appt => new Date(appt.appointment_date + 'T00:00:00') > new Date(new Date().toISOString().split('T')[0] + 'T00:00:00')
   );
 
   if (loading) {

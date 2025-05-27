@@ -154,7 +154,6 @@ const BookingPage = () => {
       // Se o horário selecionado não está mais disponível, limpar a seleção
       if (form.appointment_time && !available.includes(form.appointment_time)) {
         setForm(prev => ({ ...prev, appointment_time: '' }));
-        toast.info('O horário selecionado não está mais disponível. Escolha outro horário.');
       }
 
     } catch (error) {
