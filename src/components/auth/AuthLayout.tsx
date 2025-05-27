@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,28 +21,6 @@ const AuthLayout = () => {
     try {
       console.log('Tentando fazer login com telefone:', phone);
       
-      // Buscar o usuário pelo telefone na tabela profiles
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone', phone)
-        .maybeSingle();
-
-      console.log('Resultado da busca do perfil:', { profile, profileError });
-
-      if (profileError) {
-        console.error('Erro ao buscar perfil:', profileError);
-        toast.error('Erro ao verificar dados do usuário');
-        setLoading(false);
-        return;
-      }
-
-      if (!profile) {
-        toast.error('Telefone não cadastrado. Faça seu cadastro primeiro.');
-        setLoading(false);
-        return;
-      }
-
       // Criar email temporário baseado no telefone
       const cleanPhone = phone.replace(/\D/g, '');
       const tempEmail = `${cleanPhone}@temp.agendai.com`;
@@ -51,7 +28,7 @@ const AuthLayout = () => {
       console.log('Tentando login com email:', tempEmail);
 
       // Fazer login com email e senha
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: tempEmail,
         password,
       });
@@ -59,11 +36,12 @@ const AuthLayout = () => {
       if (error) {
         console.error('Erro no login:', error);
         if (error.message.includes('Invalid login credentials')) {
-          toast.error('Senha incorreta');
+          toast.error('Telefone ou senha incorretos');
         } else {
           toast.error('Erro ao fazer login: ' + error.message);
         }
       } else {
+        console.log('Login realizado com sucesso:', data);
         toast.success('Login realizado com sucesso!');
       }
     } catch (error) {
@@ -81,28 +59,6 @@ const AuthLayout = () => {
     try {
       console.log('Tentando criar conta com:', { name, phone });
       
-      // Verificar se o telefone já está em uso
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone', phone)
-        .maybeSingle();
-
-      console.log('Verificação de telefone existente:', { existingProfile, checkError });
-
-      if (checkError) {
-        console.error('Erro ao verificar telefone:', checkError);
-        toast.error('Erro ao verificar dados');
-        setLoading(false);
-        return;
-      }
-
-      if (existingProfile) {
-        toast.error('Este telefone já está cadastrado. Faça login.');
-        setLoading(false);
-        return;
-      }
-
       // Criar um email temporário baseado no telefone
       const cleanPhone = phone.replace(/\D/g, '');
       const tempEmail = `${cleanPhone}@temp.agendai.com`;
@@ -130,26 +86,8 @@ const AuthLayout = () => {
           toast.error('Erro ao criar conta: ' + error.message);
         }
       } else if (authData.user) {
-        // Criar perfil imediatamente após criação do usuário
-        console.log('Criando perfil para usuário:', authData.user.id);
-        
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: authData.user.id,
-              name: name,
-              phone: phone
-            }
-          ]);
-
-        if (profileError) {
-          console.error('Erro ao criar perfil:', profileError);
-          toast.error('Erro ao criar perfil do usuário');
-        } else {
-          console.log('Perfil criado com sucesso');
-          toast.success('Conta criada com sucesso! Você já pode fazer login.');
-        }
+        console.log('Usuário criado com sucesso:', authData.user.id);
+        toast.success('Conta criada com sucesso!');
       }
     } catch (error) {
       console.error('Erro inesperado ao criar conta:', error);

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +37,7 @@ const BookingPage = () => {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [form, setForm] = useState({
     service_id: '',
     barber_id: '',
@@ -49,11 +49,19 @@ const BookingPage = () => {
     notes: ''
   });
 
+  const allTimeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+
   useEffect(() => {
     if (slug) {
       loadBarbershopData();
     }
   }, [slug]);
+
+  useEffect(() => {
+    if (form.barber_id && form.appointment_date && barbershop) {
+      checkAvailableTimeSlots();
+    }
+  }, [form.barber_id, form.appointment_date, barbershop]);
 
   const loadBarbershopData = async () => {
     try {
@@ -113,6 +121,48 @@ const BookingPage = () => {
     }
   };
 
+  const checkAvailableTimeSlots = async () => {
+    try {
+      console.log('Verificando horários disponíveis para:', {
+        barber_id: form.barber_id,
+        date: form.appointment_date
+      });
+
+      // Buscar agendamentos existentes para o barbeiro na data selecionada
+      const { data: existingAppointments, error } = await supabase
+        .from('appointments')
+        .select('appointment_time')
+        .eq('barber_id', form.barber_id)
+        .eq('appointment_date', form.appointment_date)
+        .neq('status', 'cancelado');
+
+      if (error) {
+        console.error('Erro ao verificar agendamentos:', error);
+        setAvailableTimeSlots(allTimeSlots);
+        return;
+      }
+
+      // Filtrar horários já ocupados
+      const occupiedTimes = existingAppointments.map(apt => apt.appointment_time.slice(0, 5));
+      const available = allTimeSlots.filter(time => !occupiedTimes.includes(time));
+      
+      console.log('Horários ocupados:', occupiedTimes);
+      console.log('Horários disponíveis:', available);
+      
+      setAvailableTimeSlots(available);
+
+      // Se o horário selecionado não está mais disponível, limpar a seleção
+      if (form.appointment_time && !available.includes(form.appointment_time)) {
+        setForm(prev => ({ ...prev, appointment_time: '' }));
+        toast.info('O horário selecionado não está mais disponível. Escolha outro horário.');
+      }
+
+    } catch (error) {
+      console.error('Erro ao verificar horários:', error);
+      setAvailableTimeSlots(allTimeSlots);
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -128,6 +178,13 @@ const BookingPage = () => {
     // Validar campos obrigatórios
     if (!form.service_id || !form.barber_id || !form.appointment_time || !form.client_name || !form.client_phone) {
       toast.error('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Verificar novamente se o horário ainda está disponível
+    if (!availableTimeSlots.includes(form.appointment_time)) {
+      toast.error('Este horário não está mais disponível. Escolha outro horário.');
+      await checkAvailableTimeSlots();
       return;
     }
 
@@ -175,6 +232,8 @@ const BookingPage = () => {
           client_email: '',
           notes: ''
         });
+        // Atualizar horários disponíveis
+        await checkAvailableTimeSlots();
       }
     } catch (error) {
       console.error('Erro inesperado ao agendar:', error);
@@ -225,7 +284,6 @@ const BookingPage = () => {
   }
 
   const selectedService = services.find(s => s.id === form.service_id);
-  const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -326,14 +384,25 @@ const BookingPage = () => {
                   <Label htmlFor="time">Horário *</Label>
                   <Select value={form.appointment_time} onValueChange={(value) => handleInputChange('appointment_time', value)} required>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione um horário" />
+                      <SelectValue placeholder={
+                        !form.barber_id 
+                          ? "Selecione um barbeiro primeiro" 
+                          : availableTimeSlots.length === 0 
+                          ? "Nenhum horário disponível" 
+                          : "Selecione um horário"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
-                      {timeSlots.map((time) => (
+                      {availableTimeSlots.map((time) => (
                         <SelectItem key={time} value={time}>{time}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {form.barber_id && availableTimeSlots.length === 0 && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Nenhum horário disponível para este barbeiro nesta data.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -392,7 +461,11 @@ const BookingPage = () => {
                     Total: R$ {selectedService.price.toFixed(2)}
                   </p>
                 )}
-                <Button type="submit" className="w-full md:w-auto px-8 py-3 text-lg" disabled={submitting}>
+                <Button 
+                  type="submit" 
+                  className="w-full md:w-auto px-8 py-3 text-lg" 
+                  disabled={submitting || availableTimeSlots.length === 0 || !form.barber_id}
+                >
                   {submitting ? 'Agendando...' : 'Confirmar Agendamento'}
                 </Button>
               </div>
