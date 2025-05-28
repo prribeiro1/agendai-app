@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, ExternalLink, AlertCircle } from 'lucide-react';
+import { CreditCard, ExternalLink, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -38,7 +38,6 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       
       if (data.subscribed !== isActive) {
         console.log('Status mudou, atualizando página...');
-        // Se o status mudou, atualizar a página
         onUpdate();
       }
     } catch (error) {
@@ -64,7 +63,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       
       console.log('Checkout criado com sucesso:', data);
       
-      if (data.url) {
+      if (data?.url) {
         // Redirecionar para a página de checkout do Stripe
         console.log('Redirecionando para:', data.url);
         window.location.href = data.url;
@@ -76,17 +75,28 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       
       // Mensagens de erro mais específicas
       let errorMessage = 'Erro ao processar pagamento';
+      
       if (error.message) {
-        if (error.message.includes('STRIPE_SECRET_KEY')) {
-          errorMessage = 'Chave do Stripe não configurada. Entre em contato com o suporte.';
-        } else if (error.message.includes('Invalid API Key')) {
-          errorMessage = 'Chave da API do Stripe inválida. Entre em contato com o suporte.';
+        if (error.message.includes('configuração inválida') || error.message.includes('chave inválida')) {
+          errorMessage = 'Sistema de pagamento temporariamente indisponível. Tente novamente em alguns minutos.';
+        } else if (error.message.includes('não autenticado')) {
+          errorMessage = 'Sessão expirada. Faça login novamente.';
+        } else if (error.message.includes('barbearia')) {
+          errorMessage = 'Erro ao verificar sua barbearia. Atualize a página e tente novamente.';
+        } else if (error.details && error.details !== error.message) {
+          errorMessage = `${error.message}`;
         } else {
-          errorMessage = `Erro: ${error.message}`;
+          errorMessage = error.message;
         }
       }
       
-      toast.error(errorMessage);
+      toast.error(errorMessage, {
+        duration: 6000,
+        action: {
+          label: "Tentar novamente",
+          onClick: () => handleSubscribe()
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -107,7 +117,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       
       console.log('Portal criado com sucesso:', data);
       
-      if (data.url) {
+      if (data?.url) {
         // Redirecionar para o portal do cliente
         console.log('Redirecionando para portal:', data.url);
         window.location.href = data.url;
@@ -121,8 +131,10 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       if (error.message) {
         if (error.message.includes('Nenhuma assinatura encontrada')) {
           errorMessage = 'Você precisa ter uma assinatura ativa para acessar o portal';
+        } else if (error.message.includes('não encontrado no sistema')) {
+          errorMessage = 'Dados de pagamento não encontrados. Entre em contato com o suporte.';
         } else {
-          errorMessage = `Erro: ${error.message}`;
+          errorMessage = error.message;
         }
       }
       
@@ -135,8 +147,14 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
   if (isActive) {
     return (
       <div className="flex flex-col sm:flex-row gap-2">
-        <Button variant="outline" disabled={checkingStatus} onClick={checkSubscriptionStatus} size="sm">
-          <CreditCard className="h-4 w-4 mr-2" />
+        <Button 
+          variant="outline" 
+          disabled={checkingStatus} 
+          onClick={checkSubscriptionStatus} 
+          size="sm"
+          className="min-w-fit"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${checkingStatus ? 'animate-spin' : ''}`} />
           {checkingStatus ? 'Verificando...' : 'Assinatura Ativa'}
         </Button>
         <Button onClick={handleManageSubscription} disabled={loading} size="sm">
@@ -149,7 +167,12 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
 
   return (
     <div className="flex flex-col gap-3">
-      <Button onClick={handleSubscribe} disabled={loading} className="w-full sm:w-auto">
+      <Button 
+        onClick={handleSubscribe} 
+        disabled={loading} 
+        className="w-full sm:w-auto"
+        size="lg"
+      >
         <CreditCard className="h-4 w-4 mr-2" />
         {loading ? 'Processando...' : 'Assinar por R$ 19,90/mês'}
       </Button>

@@ -16,26 +16,39 @@ serve(async (req) => {
   try {
     console.log("=== CHECK SUBSCRIPTION STARTED ===");
     
-    // Configurar cliente Stripe
+    // Verificar variáveis de ambiente
     const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-    console.log("Stripe key available:", !!stripeSecretKey);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    console.log("Environment check:", {
+      hasStripeKey: !!stripeSecretKey,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey
+    });
     
     if (!stripeSecretKey) {
       throw new Error("STRIPE_SECRET_KEY não configurada");
     }
 
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Configurações do Supabase não encontradas");
+    }
+
+    // Inicializar Stripe
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2022-11-15",
       httpClient: Stripe.createFetchHttpClient(),
     });
 
-    const authHeader = req.headers.get("Authorization")!;
+    // Verificar autenticação
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Token de autorização não fornecido");
+    }
+
     const token = authHeader.replace("Bearer ", "");
-
-    const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-
-    const supabase = createClient(supabaseUrl, supabaseAdminKey, {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -43,8 +56,9 @@ serve(async (req) => {
     });
 
     // Obter usuário 
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      console.error("Erro de autenticação:", userError);
       return new Response(
         JSON.stringify({ error: "Não autorizado" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -54,7 +68,7 @@ serve(async (req) => {
     console.log("Usuário verificado:", user.email);
 
     // Verificar se o usuário já possui uma barbearia
-    const { data: barbershop } = await supabase
+    const { data: barbershop, error: barbershopError } = await supabase
       .from("barbershops")
       .select(`
         id, 
@@ -68,6 +82,14 @@ serve(async (req) => {
       `)
       .eq("owner_id", user.id)
       .single();
+
+    if (barbershopError) {
+      console.error("Erro ao buscar barbearia:", barbershopError);
+      return new Response(
+        JSON.stringify({ error: "Erro ao verificar barbearia" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!barbershop) {
       return new Response(
@@ -123,38 +145,42 @@ serve(async (req) => {
       }
     } catch (stripeError) {
       console.error("Erro ao verificar no Stripe:", stripeError);
-      // Em caso de erro no Stripe, considerar como não ativo
+      // Em caso de erro no Stripe, considerar como não ativo mas não falhar
       isActive = false;
     }
 
     // Atualizar registro no Supabase
-    if (isActive) {
-      console.log("Atualizando como ativa");
-      await supabase.from("subscriptions").update({
-        status: "active",
-        stripe_subscription_id: stripeSubscriptionId,
-        current_period_end: subscriptionEnd,
-        updated_at: new Date().toISOString(),
-      }).eq("id", subscriptionRecord.id);
+    try {
+      if (isActive) {
+        console.log("Atualizando como ativa");
+        await supabase.from("subscriptions").update({
+          status: "active",
+          stripe_subscription_id: stripeSubscriptionId,
+          current_period_end: subscriptionEnd,
+          updated_at: new Date().toISOString(),
+        }).eq("id", subscriptionRecord.id);
 
-      // Ativar a barbearia
-      await supabase.from("barbershops").update({
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      }).eq("id", barbershop.id);
-    } else if (subscriptionRecord.status === "active") {
-      console.log("Desativando assinatura");
-      // Desativar assinatura se estava ativa e não está mais
-      await supabase.from("subscriptions").update({
-        status: "inactive",
-        updated_at: new Date().toISOString(),
-      }).eq("id", subscriptionRecord.id);
+        // Ativar a barbearia
+        await supabase.from("barbershops").update({
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        }).eq("id", barbershop.id);
+      } else if (subscriptionRecord.status === "active") {
+        console.log("Desativando assinatura");
+        // Desativar assinatura se estava ativa e não está mais
+        await supabase.from("subscriptions").update({
+          status: "inactive",
+          updated_at: new Date().toISOString(),
+        }).eq("id", subscriptionRecord.id);
 
-      // Manter a barbearia ativa no modo teste
-      await supabase.from("barbershops").update({
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      }).eq("id", barbershop.id);
+        // Manter a barbearia ativa no modo teste
+        await supabase.from("barbershops").update({
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        }).eq("id", barbershop.id);
+      }
+    } catch (updateError) {
+      console.error("Erro ao atualizar banco de dados:", updateError);
     }
 
     console.log("Resultado final - subscribed:", isActive);
@@ -170,7 +196,10 @@ serve(async (req) => {
   } catch (error) {
     console.error("Erro ao verificar assinatura:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: "Erro interno ao verificar assinatura",
+        details: error.message 
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
