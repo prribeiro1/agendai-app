@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, ExternalLink, AlertCircle, RefreshCw } from 'lucide-react';
+import { CreditCard, ExternalLink, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -64,9 +64,17 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       console.log('Checkout criado com sucesso:', data);
       
       if (data?.url) {
-        // Redirecionar para a página de checkout do Stripe
-        console.log('Redirecionando para:', data.url);
-        window.location.href = data.url;
+        // Mostrar toast de sucesso antes de redirecionar
+        toast.success('Redirecionando para o checkout...', {
+          duration: 2000,
+          icon: <CheckCircle2 className="h-4 w-4" />
+        });
+        
+        // Aguardar um pouco antes de redirecionar
+        setTimeout(() => {
+          console.log('Redirecionando para:', data.url);
+          window.location.href = data.url;
+        }, 1000);
       } else {
         throw new Error('URL de checkout não retornada');
       }
@@ -76,24 +84,25 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       // Mensagens de erro mais específicas baseadas no tipo de erro
       let errorMessage = 'Erro ao processar pagamento';
       
-      if (error.message?.includes('STRIPE_SECRET_KEY') || error.message?.includes('configuração')) {
-        errorMessage = 'Sistema de pagamento temporariamente indisponível. Tente novamente em alguns minutos.';
+      if (error.message?.includes('Chave da API do Stripe')) {
+        errorMessage = 'Problema com a configuração do sistema de pagamento. Entre em contato com o suporte.';
+      } else if (error.message?.includes('sk_test_') || error.message?.includes('sk_live_')) {
+        errorMessage = 'Chave da API do Stripe inválida. Verifique a configuração.';
       } else if (error.message?.includes('não autenticado') || error.message?.includes('Sessão expirada')) {
         errorMessage = 'Sua sessão expirou. Faça login novamente.';
-        // Opcional: redirecionar para login
         setTimeout(() => {
           window.location.reload();
         }, 2000);
       } else if (error.message?.includes('barbearia')) {
         errorMessage = 'Erro ao verificar sua barbearia. Atualize a página e tente novamente.';
       } else if (error.message?.includes('Edge Function returned a non-2xx status code')) {
-        errorMessage = 'Erro de comunicação com o servidor. Verifique sua conexão e tente novamente.';
+        errorMessage = 'Erro de comunicação com o servidor. Verifique a configuração da API do Stripe.';
       } else {
         errorMessage = error.message || 'Erro inesperado. Tente novamente.';
       }
       
       toast.error(errorMessage, {
-        duration: 6000,
+        duration: 8000,
         action: {
           label: "Tentar novamente",
           onClick: () => handleSubscribe()

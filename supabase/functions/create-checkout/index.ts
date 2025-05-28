@@ -25,14 +25,26 @@ serve(async (req) => {
       hasStripeKey: !!stripeSecretKey,
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseKey: !!supabaseKey,
-      stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 10) : 'none'
+      stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 7) : 'none'
     });
     
     if (!stripeSecretKey) {
       console.error("STRIPE_SECRET_KEY não está configurada");
       return new Response(JSON.stringify({ 
-        error: "Configuração de pagamento não encontrada. Entre em contato com o suporte.",
+        error: "Configuração de pagamento não encontrada. A chave da API do Stripe não está configurada.",
         details: "STRIPE_SECRET_KEY não configurada" 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validar formato da chave Stripe
+    if (!stripeSecretKey.startsWith('sk_test_') && !stripeSecretKey.startsWith('sk_live_')) {
+      console.error("Formato de chave Stripe inválido");
+      return new Response(JSON.stringify({ 
+        error: "Chave da API do Stripe em formato inválido. Use uma chave que comece com sk_test_ ou sk_live_",
+        details: "Formato de chave inválido" 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -58,11 +70,15 @@ serve(async (req) => {
         httpClient: Stripe.createFetchHttpClient(),
       });
       console.log("Stripe inicializado com sucesso");
+      
+      // Testar a chave fazendo uma requisição simples
+      await stripe.customers.list({ limit: 1 });
+      console.log("Chave Stripe validada com sucesso");
     } catch (stripeError) {
-      console.error("Erro ao inicializar Stripe:", stripeError);
+      console.error("Erro ao inicializar ou validar Stripe:", stripeError);
       return new Response(JSON.stringify({ 
-        error: "Erro na configuração do sistema de pagamento. Tente novamente em alguns minutos.",
-        details: "Erro ao inicializar Stripe" 
+        error: "Chave da API do Stripe inválida. Verifique se a chave está correta no dashboard do Stripe.",
+        details: stripeError.message 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -183,8 +199,8 @@ serve(async (req) => {
       } catch (customerCreateError) {
         console.error("Erro ao criar cliente no Stripe:", customerCreateError);
         return new Response(JSON.stringify({ 
-          error: "Erro ao processar dados do cliente. Tente novamente.",
-          details: "Erro ao criar cliente no Stripe" 
+          error: "Erro ao processar dados do cliente. Verifique sua chave da API do Stripe.",
+          details: customerCreateError.message 
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -239,7 +255,7 @@ serve(async (req) => {
     } catch (sessionError) {
       console.error("Erro ao criar sessão de checkout:", sessionError);
       return new Response(JSON.stringify({ 
-        error: "Erro ao iniciar processo de pagamento. Tente novamente.",
+        error: "Erro ao iniciar processo de pagamento. Verifique sua chave da API do Stripe.",
         details: sessionError.message 
       }), {
         status: 500,
@@ -251,7 +267,7 @@ serve(async (req) => {
     console.error("Erro geral na função create-checkout:", error);
     
     return new Response(JSON.stringify({ 
-      error: "Erro interno do servidor. Tente novamente em alguns minutos.",
+      error: "Erro interno do servidor. Verifique se a chave da API do Stripe está configurada corretamente.",
       details: error.message 
     }), {
       status: 500,
