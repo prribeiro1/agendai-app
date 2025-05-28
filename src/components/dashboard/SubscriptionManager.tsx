@@ -73,21 +73,23 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
       
-      // Mensagens de erro mais específicas
+      // Mensagens de erro mais específicas baseadas no tipo de erro
       let errorMessage = 'Erro ao processar pagamento';
       
-      if (error.message) {
-        if (error.message.includes('configuração inválida') || error.message.includes('chave inválida')) {
-          errorMessage = 'Sistema de pagamento temporariamente indisponível. Tente novamente em alguns minutos.';
-        } else if (error.message.includes('não autenticado')) {
-          errorMessage = 'Sessão expirada. Faça login novamente.';
-        } else if (error.message.includes('barbearia')) {
-          errorMessage = 'Erro ao verificar sua barbearia. Atualize a página e tente novamente.';
-        } else if (error.details && error.details !== error.message) {
-          errorMessage = `${error.message}`;
-        } else {
-          errorMessage = error.message;
-        }
+      if (error.message?.includes('STRIPE_SECRET_KEY') || error.message?.includes('configuração')) {
+        errorMessage = 'Sistema de pagamento temporariamente indisponível. Tente novamente em alguns minutos.';
+      } else if (error.message?.includes('não autenticado') || error.message?.includes('Sessão expirada')) {
+        errorMessage = 'Sua sessão expirou. Faça login novamente.';
+        // Opcional: redirecionar para login
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else if (error.message?.includes('barbearia')) {
+        errorMessage = 'Erro ao verificar sua barbearia. Atualize a página e tente novamente.';
+      } else if (error.message?.includes('Edge Function returned a non-2xx status code')) {
+        errorMessage = 'Erro de comunicação com o servidor. Verifique sua conexão e tente novamente.';
+      } else {
+        errorMessage = error.message || 'Erro inesperado. Tente novamente.';
       }
       
       toast.error(errorMessage, {
@@ -128,14 +130,12 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       console.error('Erro ao abrir portal de assinatura:', error);
       
       let errorMessage = 'Erro ao abrir configurações de assinatura';
-      if (error.message) {
-        if (error.message.includes('Nenhuma assinatura encontrada')) {
-          errorMessage = 'Você precisa ter uma assinatura ativa para acessar o portal';
-        } else if (error.message.includes('não encontrado no sistema')) {
-          errorMessage = 'Dados de pagamento não encontrados. Entre em contato com o suporte.';
-        } else {
-          errorMessage = error.message;
-        }
+      if (error.message?.includes('Nenhuma assinatura encontrada')) {
+        errorMessage = 'Você precisa ter uma assinatura ativa para acessar o portal';
+      } else if (error.message?.includes('não encontrado no sistema')) {
+        errorMessage = 'Dados de pagamento não encontrados. Entre em contato com o suporte.';
+      } else {
+        errorMessage = error.message || 'Erro inesperado. Tente novamente.';
       }
       
       toast.error(errorMessage);

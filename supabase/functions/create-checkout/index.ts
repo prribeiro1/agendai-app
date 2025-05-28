@@ -25,15 +25,29 @@ serve(async (req) => {
       hasStripeKey: !!stripeSecretKey,
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseKey: !!supabaseKey,
-      stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 7) : 'none'
+      stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 10) : 'none'
     });
     
     if (!stripeSecretKey) {
-      throw new Error("STRIPE_SECRET_KEY não configurada no ambiente");
+      console.error("STRIPE_SECRET_KEY não está configurada");
+      return new Response(JSON.stringify({ 
+        error: "Configuração de pagamento não encontrada. Entre em contato com o suporte.",
+        details: "STRIPE_SECRET_KEY não configurada" 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Configurações do Supabase não encontradas");
+      console.error("Configurações do Supabase não encontradas");
+      return new Response(JSON.stringify({ 
+        error: "Erro de configuração do sistema",
+        details: "Configurações do Supabase não encontradas" 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Inicializar Stripe com validação da chave
@@ -46,13 +60,26 @@ serve(async (req) => {
       console.log("Stripe inicializado com sucesso");
     } catch (stripeError) {
       console.error("Erro ao inicializar Stripe:", stripeError);
-      throw new Error("Erro na configuração do Stripe: chave inválida");
+      return new Response(JSON.stringify({ 
+        error: "Erro na configuração do sistema de pagamento. Tente novamente em alguns minutos.",
+        details: "Erro ao inicializar Stripe" 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Verificar autenticação
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("Token de autorização não fornecido");
+      console.error("Token de autorização não fornecido");
+      return new Response(JSON.stringify({ 
+        error: "Sessão expirada. Faça login novamente.",
+        details: "Token de autorização não fornecido" 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const token = authHeader.replace("Bearer ", "");
@@ -61,7 +88,13 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       console.error("Erro de autenticação:", userError);
-      throw new Error("Usuário não autenticado");
+      return new Response(JSON.stringify({ 
+        error: "Sessão expirada. Faça login novamente.",
+        details: "Usuário não autenticado" 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("Usuário autenticado:", user.email);
@@ -82,11 +115,24 @@ serve(async (req) => {
 
     if (barbershopError) {
       console.error("Erro ao buscar barbearia:", barbershopError);
-      throw new Error("Erro ao verificar barbearia do usuário");
+      return new Response(JSON.stringify({ 
+        error: "Erro ao verificar sua barbearia. Atualize a página e tente novamente.",
+        details: "Erro ao buscar barbearia" 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!barbershop) {
-      throw new Error("Nenhuma barbearia encontrada para este usuário");
+      console.error("Nenhuma barbearia encontrada para o usuário");
+      return new Response(JSON.stringify({ 
+        error: "Você precisa ter uma barbearia cadastrada para assinar",
+        details: "Nenhuma barbearia encontrada" 
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("Barbearia encontrada:", barbershop.name);
@@ -136,7 +182,13 @@ serve(async (req) => {
         }
       } catch (customerCreateError) {
         console.error("Erro ao criar cliente no Stripe:", customerCreateError);
-        throw new Error("Erro ao criar cliente no sistema de pagamento");
+        return new Response(JSON.stringify({ 
+          error: "Erro ao processar dados do cliente. Tente novamente.",
+          details: "Erro ao criar cliente no Stripe" 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
 
@@ -186,35 +238,23 @@ serve(async (req) => {
       });
     } catch (sessionError) {
       console.error("Erro ao criar sessão de checkout:", sessionError);
-      throw new Error("Erro ao criar sessão de pagamento");
+      return new Response(JSON.stringify({ 
+        error: "Erro ao iniciar processo de pagamento. Tente novamente.",
+        details: sessionError.message 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
   } catch (error) {
     console.error("Erro geral na função create-checkout:", error);
     
-    let errorMessage = "Erro interno do servidor";
-    let statusCode = 500;
-    
-    if (error.message) {
-      if (error.message.includes("chave inválida") || error.message.includes("STRIPE_SECRET_KEY")) {
-        errorMessage = "Configuração de pagamento inválida. Entre em contato com o suporte.";
-        statusCode = 500;
-      } else if (error.message.includes("não autenticado")) {
-        errorMessage = "Usuário não autenticado";
-        statusCode = 401;
-      } else if (error.message.includes("Nenhuma barbearia")) {
-        errorMessage = "Você precisa ter uma barbearia cadastrada para assinar";
-        statusCode = 404;
-      } else {
-        errorMessage = error.message;
-      }
-    }
-
     return new Response(JSON.stringify({ 
-      error: errorMessage,
+      error: "Erro interno do servidor. Tente novamente em alguns minutos.",
       details: error.message 
     }), {
-      status: statusCode,
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
