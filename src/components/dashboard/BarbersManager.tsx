@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -210,13 +210,13 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
                 Novo Barbeiro
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>
                   {editingBarber ? 'Editar Barbeiro' : 'Novo Barbeiro'}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <Label htmlFor="name">Nome do Barbeiro *</Label>
                   <Input
@@ -228,20 +228,17 @@ export const BarbersManager: React.FC<BarbersManagerProps> = ({ barbershopId }) 
                     disabled={submitting}
                   />
                 </div>
+                
                 <div>
-                  <Label htmlFor="photo_url">URL da Foto (opcional)</Label>
-                  <Input
-                    id="photo_url"
-                    type="url"
+                  <ImageUpload
                     value={form.photo_url}
-                    onChange={(e) => setForm(prev => ({ ...prev, photo_url: e.target.value }))}
-                    placeholder="https://exemplo.com/foto.jpg"
+                    onChange={(url) => setForm(prev => ({ ...prev, photo_url: url }))}
+                    onRemove={() => setForm(prev => ({ ...prev, photo_url: '' }))}
                     disabled={submitting}
+                    label="Foto do Barbeiro"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Cole aqui o link de uma foto hospedada online
-                  </p>
                 </div>
+                
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1" disabled={submitting}>
                     {submitting ? 'Salvando...' : (editingBarber ? 'Atualizar' : 'Criar')} Barbeiro
