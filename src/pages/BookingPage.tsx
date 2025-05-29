@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Scissors, Clock, Phone, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,6 +29,7 @@ interface Service {
 interface Barber {
   id: string;
   name: string;
+  photo_url?: string;
 }
 
 const BookingPage = () => {
@@ -350,7 +352,15 @@ const BookingPage = () => {
                     <SelectContent>
                       {barbers.map((barber) => (
                         <SelectItem key={barber.id} value={barber.id}>
-                          {barber.name}
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={barber.photo_url} alt={barber.name} />
+                              <AvatarFallback>
+                                {barber.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{barber.name}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
