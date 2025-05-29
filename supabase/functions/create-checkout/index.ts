@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@12.0.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
@@ -115,6 +114,17 @@ serve(async (req) => {
 
     console.log("Usuário autenticado:", user.email);
 
+    // Pegar método de pagamento do body (se fornecido)
+    let paymentMethod = 'both'; // padrão
+    try {
+      const body = await req.json();
+      if (body.paymentMethod) {
+        paymentMethod = body.paymentMethod;
+      }
+    } catch {
+      // Se não conseguir fazer parse do JSON, usar o padrão
+    }
+
     // Verificar se o usuário já possui uma barbearia
     const { data: barbershop, error: barbershopError } = await supabase
       .from("barbershops")
@@ -208,14 +218,25 @@ serve(async (req) => {
       }
     }
 
+    // Configurar métodos de pagamento baseado na escolha
+    const paymentMethodTypes = [];
+    if (paymentMethod === 'card') {
+      paymentMethodTypes.push('card');
+    } else if (paymentMethod === 'pix') {
+      paymentMethodTypes.push('pix');
+    } else {
+      // 'both' ou qualquer outro valor
+      paymentMethodTypes.push('card', 'pix');
+    }
+
     // Criar sessão Stripe para assinatura
-    console.log("Criando sessão de checkout");
+    console.log("Criando sessão de checkout com métodos:", paymentMethodTypes);
     const origin = req.headers.get("origin") || "https://lovable.dev";
     
     try {
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
-        payment_method_types: ["card"],
+        payment_method_types: paymentMethodTypes,
         line_items: [
           {
             price_data: {

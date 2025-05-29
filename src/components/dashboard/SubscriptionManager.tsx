@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, ExternalLink, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { CreditCard, ExternalLink, AlertCircle, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -48,13 +47,15 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
-  // Iniciar o processo de assinatura
-  const handleSubscribe = async () => {
+  // Iniciar o processo de assinatura com escolha de método de pagamento
+  const handleSubscribe = async (paymentMethod: 'card' | 'pix' | 'both' = 'both') => {
     setLoading(true);
     try {
-      console.log('Iniciando processo de assinatura...');
+      console.log('Iniciando processo de assinatura com método:', paymentMethod);
       
-      const { data, error } = await supabase.functions.invoke('create-checkout');
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { paymentMethod }
+      });
       
       if (error) {
         console.error('Erro na função create-checkout:', error);
@@ -64,13 +65,11 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       console.log('Checkout criado com sucesso:', data);
       
       if (data?.url) {
-        // Mostrar toast de sucesso antes de redirecionar
         toast.success('Redirecionando para o checkout...', {
           duration: 2000,
           icon: <CheckCircle2 className="h-4 w-4" />
         });
         
-        // Aguardar um pouco antes de redirecionar
         setTimeout(() => {
           console.log('Redirecionando para:', data.url);
           window.location.href = data.url;
@@ -81,7 +80,6 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
       
-      // Mensagens de erro mais específicas baseadas no tipo de erro
       let errorMessage = 'Erro ao processar pagamento';
       
       if (error.message?.includes('Chave da API do Stripe')) {
@@ -105,7 +103,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
         duration: 8000,
         action: {
           label: "Tentar novamente",
-          onClick: () => handleSubscribe()
+          onClick: () => handleSubscribe(paymentMethod)
         }
       });
     } finally {
@@ -129,7 +127,6 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
       console.log('Portal criado com sucesso:', data);
       
       if (data?.url) {
-        // Redirecionar para o portal do cliente
         console.log('Redirecionando para portal:', data.url);
         window.location.href = data.url;
       } else {
@@ -176,15 +173,28 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
 
   return (
     <div className="flex flex-col gap-3">
-      <Button 
-        onClick={handleSubscribe} 
-        disabled={loading} 
-        className="w-full sm:w-auto"
-        size="lg"
-      >
-        <CreditCard className="h-4 w-4 mr-2" />
-        {loading ? 'Processando...' : 'Assinar por R$ 19,90/mês'}
-      </Button>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button 
+          onClick={() => handleSubscribe('card')} 
+          disabled={loading} 
+          className="w-full sm:w-auto"
+          size="lg"
+        >
+          <CreditCard className="h-4 w-4 mr-2" />
+          {loading ? 'Processando...' : 'Cartão - R$ 19,90/mês'}
+        </Button>
+        
+        <Button 
+          onClick={() => handleSubscribe('pix')} 
+          disabled={loading} 
+          className="w-full sm:w-auto"
+          size="lg"
+          variant="outline"
+        >
+          <Smartphone className="h-4 w-4 mr-2" />
+          {loading ? 'Processando...' : 'PIX - R$ 19,90/mês'}
+        </Button>
+      </div>
       
       {/* Informações sobre a assinatura */}
       <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-sm">

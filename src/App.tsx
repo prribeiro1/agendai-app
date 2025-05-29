@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AuthLayout from "./components/auth/AuthLayout";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
 import BookingPage from "./pages/BookingPage";
+import PaymentSuccessPage from "./pages/PaymentSuccessPage";
 import NotFound from "./pages/NotFound";
 import { toast } from "sonner";
 
@@ -87,6 +88,7 @@ const App = () => {
           <Routes>
             {/* Rotas públicas de agendamento */}
             <Route path="/agendar/:slug" element={<BookingPage />} />
+            <Route path="/pagamento-sucesso" element={<PaymentSuccessPage />} />
             
             {/* Rotas do dashboard (requer autenticação) */}
             <Route path="/" element={session ? <DashboardLayout /> : <AuthLayout />} />
