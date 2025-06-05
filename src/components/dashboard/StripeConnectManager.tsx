@@ -61,6 +61,15 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
       
       if (error) {
         console.error('Erro ao criar conta Connect:', error);
+        
+        // Tratar erro específico do Stripe Connect não habilitado
+        if (error.message?.includes('signed up for Connect')) {
+          toast.error('Para usar esta funcionalidade, você precisa habilitar o Stripe Connect na sua conta Stripe. Acesse o dashboard do Stripe e ative o Connect.', {
+            duration: 8000
+          });
+          return;
+        }
+        
         throw error;
       }
       
@@ -72,7 +81,7 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
         });
         
         setTimeout(() => {
-          window.location.href = data.onboarding_url;
+          window.open(data.onboarding_url, '_blank');
         }, 1000);
       } else {
         throw new Error('URL de configuração não retornada');
@@ -84,6 +93,8 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
       if (error.message?.includes('já existe')) {
         errorMessage = 'Você já possui uma conta de pagamentos configurada';
         checkConnectStatus(); // Recarregar status
+      } else if (error.message?.includes('Connect')) {
+        errorMessage = 'Stripe Connect não está habilitado. Ative no dashboard do Stripe primeiro.';
       } else {
         errorMessage = error.message || 'Erro inesperado. Tente novamente.';
       }
@@ -204,6 +215,15 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
               <li>• Transferências automáticas para sua conta bancária</li>
               <li>• Controle total sobre seus recebimentos</li>
             </ul>
+          </div>
+        )}
+
+        {!connectStatus.connected && (
+          <div className="bg-yellow-50 p-3 rounded-lg text-sm border border-yellow-200">
+            <p className="text-yellow-800 font-medium mb-1">⚠️ Pré-requisito</p>
+            <p className="text-yellow-700 text-xs">
+              Certifique-se de que o Stripe Connect está habilitado na sua conta Stripe antes de configurar.
+            </p>
           </div>
         )}
       </CardContent>
