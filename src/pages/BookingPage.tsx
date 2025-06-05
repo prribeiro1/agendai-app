@@ -15,6 +15,7 @@ import { PaymentMethodSelector } from '@/components/booking/PaymentMethodSelecto
 interface Barbershop {
   id: string;
   name: string;
+  slug: string;
   phone: string;
   address: string;
   description: string;
