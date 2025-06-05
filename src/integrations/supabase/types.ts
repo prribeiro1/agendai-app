@@ -21,8 +21,11 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          payment_method: string | null
+          payment_status: string | null
           service_id: string | null
           status: string | null
+          stripe_session_id: string | null
           updated_at: string
         }
         Insert: {
@@ -36,8 +39,11 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           service_id?: string | null
           status?: string | null
+          stripe_session_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -51,8 +57,11 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           service_id?: string | null
           status?: string | null
+          stripe_session_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -240,6 +249,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "services_barbershop_id_fkey"
+            columns: ["barbershop_id"]
+            isOneToOne: false
+            referencedRelation: "barbershops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_connect_accounts: {
+        Row: {
+          account_status: string | null
+          barbershop_id: string
+          charges_enabled: boolean | null
+          created_at: string
+          id: string
+          payouts_enabled: boolean | null
+          stripe_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_status?: string | null
+          barbershop_id: string
+          charges_enabled?: boolean | null
+          created_at?: string
+          id?: string
+          payouts_enabled?: boolean | null
+          stripe_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_status?: string | null
+          barbershop_id?: string
+          charges_enabled?: boolean | null
+          created_at?: string
+          id?: string
+          payouts_enabled?: boolean | null
+          stripe_account_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_connect_accounts_barbershop_id_fkey"
             columns: ["barbershop_id"]
             isOneToOne: false
             referencedRelation: "barbershops"

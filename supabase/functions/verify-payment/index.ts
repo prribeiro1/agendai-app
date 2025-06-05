@@ -63,7 +63,16 @@ serve(async (req) => {
           payment_method: session.payment_method_types[0],
           stripe_session_id: sessionId,
         }])
-        .select()
+        .select(`
+          *,
+          services (
+            name,
+            price
+          ),
+          barbers (
+            name
+          )
+        `)
         .single();
 
       if (appointmentError) {

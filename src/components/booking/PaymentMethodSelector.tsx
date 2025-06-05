@@ -6,7 +6,7 @@ import { CreditCard, Smartphone, DollarSign } from 'lucide-react';
 
 interface PaymentMethodSelectorProps {
   servicePrice: number;
-  onPaymentMethodSelect: (method: 'card' | 'pix' | 'both' | 'cash') => void;
+  onPaymentMethodSelect: (method: 'card' | 'pix' | 'cash') => void;
   loading: boolean;
 }
 
@@ -51,20 +51,6 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
             <Smartphone className="h-6 w-6" />
             <span>PIX</span>
             <span className="text-xs text-gray-500">Pagamento online</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            className="h-20 flex flex-col gap-2 md:col-span-2"
-            onClick={() => onPaymentMethodSelect('both')}
-            disabled={loading}
-          >
-            <div className="flex gap-2">
-              <CreditCard className="h-5 w-5" />
-              <Smartphone className="h-5 w-5" />
-            </div>
-            <span>Cartão ou PIX</span>
-            <span className="text-xs text-gray-500">Escolher na hora do pagamento</span>
           </Button>
         </div>
 

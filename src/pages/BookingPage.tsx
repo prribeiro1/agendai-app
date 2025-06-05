@@ -247,7 +247,7 @@ const BookingPage = () => {
     }
   };
 
-  const handlePaymentMethodSelect = async (method: 'card' | 'pix' | 'both' | 'cash') => {
+  const handlePaymentMethodSelect = async (method: 'card' | 'pix' | 'cash') => {
     const selectedService = services.find(s => s.id === form.service_id);
     const selectedBarber = barbers.find(b => b.id === form.barber_id);
     
