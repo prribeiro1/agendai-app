@@ -41,6 +41,32 @@ serve(async (req) => {
     const { appointmentData, servicePrice, paymentMethod } = await req.json();
     console.log("Dados recebidos:", { appointmentData, servicePrice, paymentMethod });
 
+    // Buscar conta conectada da barbearia
+    const { data: connectAccount, error: connectError } = await supabase
+      .from("stripe_connect_accounts")
+      .select("stripe_account_id, charges_enabled")
+      .eq("barbershop_id", appointmentData.barbershop_id)
+      .single();
+
+    if (connectError || !connectAccount) {
+      console.error("Conta conectada não encontrada:", connectError);
+      return new Response(JSON.stringify({ 
+        error: "Esta barbearia ainda não configurou os pagamentos online" 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!connectAccount.charges_enabled) {
+      return new Response(JSON.stringify({ 
+        error: "Os pagamentos online estão sendo configurados para esta barbearia" 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Criar cliente no Stripe (pode ser guest)
     const customerEmail = appointmentData.client_email || `${appointmentData.client_phone}@guest.agendai.com`;
     
@@ -76,7 +102,10 @@ serve(async (req) => {
       paymentMethodTypes.push('card', 'pix');
     }
 
-    // Criar sessão de checkout
+    // Calcular taxa da plataforma (5%)
+    const applicationFeeAmount = Math.round(servicePrice * 100 * 0.05);
+
+    // Criar sessão de checkout com Stripe Connect
     const origin = req.headers.get("origin") || "https://lovable.dev";
     
     try {
@@ -99,6 +128,12 @@ serve(async (req) => {
         mode: "payment",
         success_url: `${origin}/pagamento-sucesso?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/agendar/${appointmentData.barbershop_slug}?canceled=true`,
+        payment_intent_data: {
+          application_fee_amount: applicationFeeAmount,
+          transfer_data: {
+            destination: connectAccount.stripe_account_id,
+          },
+        },
         metadata: {
           barbershop_id: appointmentData.barbershop_id,
           service_id: appointmentData.service_id,

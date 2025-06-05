@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, ExternalLink, Users, Calendar, Settings, Scissors, CheckCircle, BarChart3 } from 'lucide-react';
+import { CreditCard, ExternalLink, Users, Calendar, Scissors, CheckCircle, BarChart3 } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
+import { StripeConnectManager } from './StripeConnectManager';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
 import { AppointmentsManager } from './AppointmentsManager';
@@ -89,7 +91,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
 
   return (
     <div className="space-y-6">
-      {/* Status da Assinatura - Com feedback melhorado */}
+      {/* Status da Assinatura */}
       <Card className={isSubscriptionActive ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -127,6 +129,9 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           </div>
         </CardContent>
       </Card>
+
+      {/* Configuração de Pagamentos */}
+      <StripeConnectManager barbershopId={barbershop.id} />
 
       {/* Link Público */}
       <Card>
@@ -194,14 +199,6 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           <Users className="h-4 w-4 mr-2" />
           Barbeiros
         </Button>
-        <Button 
-          variant={activeTab === 'settings' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('settings')}
-          size="sm"
-        >
-          <Settings className="h-4 w-4 mr-2" />
-          Configurações
-        </Button>
       </div>
 
       {/* Conteúdo das abas */}
@@ -266,27 +263,6 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
 
       {activeTab === 'barbers' && (
         <BarbersManager barbershopId={barbershop.id} />
-      )}
-
-      {activeTab === 'settings' && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-blue-800 mb-2">
-                  🎉 {isSubscriptionActive ? 'Assinatura Premium Ativa' : 'Modo Teste Ativo'}
-                </h3>
-                <p className="text-blue-700 mb-4">
-                  {isSubscriptionActive 
-                    ? 'Você tem acesso completo a todas as funcionalidades e suporte prioritário.'
-                    : 'Todas as funcionalidades estão disponíveis gratuitamente para teste. Quando estiver satisfeito, você pode ativar a assinatura.'
-                  }
-                </p>
-              </div>
-              <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );

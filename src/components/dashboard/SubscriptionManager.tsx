@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, ExternalLink, AlertCircle, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
+import { CreditCard, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -47,14 +48,14 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
-  // Iniciar o processo de assinatura com escolha de método de pagamento
-  const handleSubscribe = async (paymentMethod: 'card' | 'pix' | 'both' = 'both') => {
+  // Iniciar o processo de assinatura apenas com cartão
+  const handleSubscribe = async () => {
     setLoading(true);
     try {
-      console.log('Iniciando processo de assinatura com método:', paymentMethod);
+      console.log('Iniciando processo de assinatura com cartão...');
       
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { paymentMethod }
+        body: { paymentMethod: 'card' }
       });
       
       if (error) {
@@ -103,7 +104,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
         duration: 8000,
         action: {
           label: "Tentar novamente",
-          onClick: () => handleSubscribe(paymentMethod)
+          onClick: () => handleSubscribe()
         }
       });
     } finally {
@@ -173,42 +174,15 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col sm:flex-row gap-2">
-        <Button 
-          onClick={() => handleSubscribe('card')} 
-          disabled={loading} 
-          className="w-full sm:w-auto"
-          size="lg"
-        >
-          <CreditCard className="h-4 w-4 mr-2" />
-          {loading ? 'Processando...' : 'Cartão - R$ 19,90/mês'}
-        </Button>
-        
-        <Button 
-          onClick={() => handleSubscribe('pix')} 
-          disabled={loading} 
-          className="w-full sm:w-auto"
-          size="lg"
-          variant="outline"
-        >
-          <Smartphone className="h-4 w-4 mr-2" />
-          {loading ? 'Processando...' : 'PIX - R$ 19,90/mês'}
-        </Button>
-      </div>
-      
-      {/* Informações sobre a assinatura */}
-      <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-sm">
-        <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-        <div className="text-blue-800">
-          <p className="font-medium mb-1">Sobre a assinatura:</p>
-          <ul className="space-y-1 text-xs">
-            <li>• Pagamento mensal de R$ 19,90</li>
-            <li>• Cancele a qualquer momento</li>
-            <li>• Suporte prioritário</li>
-            <li>• Todas as funcionalidades incluídas</li>
-          </ul>
-        </div>
-      </div>
+      <Button 
+        onClick={handleSubscribe} 
+        disabled={loading} 
+        className="w-full sm:w-auto"
+        size="lg"
+      >
+        <CreditCard className="h-4 w-4 mr-2" />
+        {loading ? 'Processando...' : 'Assinar - R$ 19,90/mês'}
+      </Button>
     </div>
   );
 };
