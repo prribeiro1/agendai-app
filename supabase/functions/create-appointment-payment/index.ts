@@ -21,9 +21,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!stripeSecretKey || !supabaseUrl || !supabaseKey) {
-      console.error("Configurações necessárias não encontradas");
       return new Response(JSON.stringify({ 
-        error: "Configuração de pagamento não encontrada" 
+        error: "Configuração não encontrada" 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -37,19 +36,18 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Pegar dados do body da requisição
     const { appointmentData, servicePrice, paymentMethod } = await req.json();
+    
     console.log("Dados recebidos:", { appointmentData, servicePrice, paymentMethod });
 
-    // Buscar conta conectada da barbearia
-    const { data: connectAccount, error: connectError } = await supabase
+    // Verificar se a barbearia tem conta Stripe Connect configurada
+    const { data: connectAccount } = await supabase
       .from("stripe_connect_accounts")
       .select("stripe_account_id, charges_enabled")
       .eq("barbershop_id", appointmentData.barbershop_id)
       .single();
 
-    if (connectError || !connectAccount) {
-      console.error("Conta conectada não encontrada:", connectError);
+    if (!connectAccount || !connectAccount.charges_enabled) {
       return new Response(JSON.stringify({ 
         error: "Esta barbearia ainda não configurou os pagamentos online" 
       }), {
@@ -58,122 +56,66 @@ serve(async (req) => {
       });
     }
 
-    if (!connectAccount.charges_enabled) {
-      return new Response(JSON.stringify({ 
-        error: "Os pagamentos online estão sendo configurados para esta barbearia" 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Criar cliente no Stripe (pode ser guest)
-    const customerEmail = appointmentData.client_email || `${appointmentData.client_phone}@guest.agendai.com`;
-    
-    let customer;
-    try {
-      const existingCustomers = await stripe.customers.list({
-        email: customerEmail,
-        limit: 1
-      });
-      
-      if (existingCustomers.data.length > 0) {
-        customer = existingCustomers.data[0];
-      } else {
-        customer = await stripe.customers.create({
-          email: customerEmail,
-          name: appointmentData.client_name,
-          phone: appointmentData.client_phone,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao criar/buscar cliente:", error);
-      return new Response(JSON.stringify({ 
-        error: "Erro ao processar dados do cliente" 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Configurar métodos de pagamento baseado na escolha
-    const paymentMethodTypes = paymentMethod === 'pix' ? ['pix'] : ['card'];
-    if (paymentMethod === 'both') {
-      paymentMethodTypes.push('card', 'pix');
+    let payment_method_types = [];
+    if (paymentMethod === 'card') {
+      payment_method_types = ['card'];
+    } else if (paymentMethod === 'pix') {
+      payment_method_types = ['card']; // PIX ainda não disponível no Brasil via Stripe
     }
 
-    // Calcular taxa da plataforma (5%)
-    const applicationFeeAmount = Math.round(servicePrice * 100 * 0.05);
-
-    // Criar sessão de checkout com Stripe Connect
-    const origin = req.headers.get("origin") || "https://lovable.dev";
-    
-    try {
-      const session = await stripe.checkout.sessions.create({
-        customer: customer.id,
-        payment_method_types: paymentMethodTypes,
-        line_items: [
-          {
-            price_data: {
-              currency: "brl",
-              product_data: {
-                name: `Agendamento - ${appointmentData.service_name}`,
-                description: `Barbeiro: ${appointmentData.barber_name} | Data: ${appointmentData.appointment_date} ${appointmentData.appointment_time}`,
-              },
-              unit_amount: servicePrice * 100, // Converter para centavos
+    // Criar sessão de checkout
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types,
+      line_items: [
+        {
+          price_data: {
+            currency: 'brl',
+            product_data: {
+              name: `${appointmentData.service_name} - ${appointmentData.barber_name}`,
+              description: `Agendamento para ${appointmentData.appointment_date} às ${appointmentData.appointment_time}`,
             },
-            quantity: 1,
+            unit_amount: Math.round(servicePrice * 100), // Converter para centavos
           },
-        ],
-        mode: "payment",
-        success_url: `${origin}/pagamento-sucesso?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/agendar/${appointmentData.barbershop_slug}?canceled=true`,
-        payment_intent_data: {
-          application_fee_amount: applicationFeeAmount,
-          transfer_data: {
-            destination: connectAccount.stripe_account_id,
-          },
+          quantity: 1,
         },
-        metadata: {
-          barbershop_id: appointmentData.barbershop_id,
-          service_id: appointmentData.service_id,
-          barber_id: appointmentData.barber_id,
-          appointment_date: appointmentData.appointment_date,
-          appointment_time: appointmentData.appointment_time,
-          client_name: appointmentData.client_name,
-          client_phone: appointmentData.client_phone,
-          client_email: appointmentData.client_email || '',
-          notes: appointmentData.notes || '',
+      ],
+      mode: 'payment',
+      success_url: `${req.headers.get("origin")}/agendar/${appointmentData.barbershop_slug}?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.get("origin")}/agendar/${appointmentData.barbershop_slug}?canceled=true`,
+      metadata: {
+        barbershop_id: appointmentData.barbershop_id,
+        service_id: appointmentData.service_id,
+        barber_id: appointmentData.barber_id,
+        appointment_date: appointmentData.appointment_date,
+        appointment_time: appointmentData.appointment_time,
+        client_name: appointmentData.client_name,
+        client_phone: appointmentData.client_phone,
+        client_email: appointmentData.client_email || '',
+        notes: appointmentData.notes || '',
+      },
+      payment_intent_data: {
+        application_fee_amount: Math.round(servicePrice * 100 * 0.05), // 5% de taxa da plataforma
+        transfer_data: {
+          destination: connectAccount.stripe_account_id,
         },
-        expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
-        billing_address_collection: "required",
-      });
+      },
+    });
 
-      console.log("Sessão de pagamento criada:", session.id);
+    console.log("Sessão criada:", session.id);
 
-      return new Response(JSON.stringify({ 
-        url: session.url,
-        sessionId: session.id 
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (sessionError) {
-      console.error("Erro ao criar sessão de checkout:", sessionError);
-      return new Response(JSON.stringify({ 
-        error: "Erro ao iniciar processo de pagamento",
-        details: sessionError.message 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    return new Response(JSON.stringify({ 
+      url: session.url 
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (error) {
-    console.error("Erro geral na função create-appointment-payment:", error);
+    console.error("Erro na função create-appointment-payment:", error);
     
     return new Response(JSON.stringify({ 
-      error: "Erro interno do servidor",
+      error: "Erro ao processar pagamento",
       details: error.message 
     }), {
       status: 500,

@@ -22,9 +22,12 @@ serve(async (req) => {
     
     if (!stripeSecretKey || !supabaseUrl || !supabaseKey) {
       return new Response(JSON.stringify({ 
-        error: "Configuração não encontrada" 
+        connected: false,
+        account_status: null,
+        charges_enabled: false,
+        payouts_enabled: false
       }), {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -40,9 +43,12 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ 
-        error: "Não autenticado" 
+        connected: false,
+        account_status: null,
+        charges_enabled: false,
+        payouts_enabled: false
       }), {
-        status: 401,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -51,9 +57,12 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ 
-        error: "Usuário não autenticado" 
+        connected: false,
+        account_status: null,
+        charges_enabled: false,
+        payouts_enabled: false
       }), {
-        status: 401,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -67,9 +76,12 @@ serve(async (req) => {
 
     if (barbershopError || !barbershop) {
       return new Response(JSON.stringify({ 
-        error: "Barbearia não encontrada" 
+        connected: false,
+        account_status: null,
+        charges_enabled: false,
+        payouts_enabled: false
       }), {
-        status: 404,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -84,51 +96,69 @@ serve(async (req) => {
     if (connectError || !connectAccount) {
       return new Response(JSON.stringify({ 
         connected: false,
-        account_status: null
+        account_status: null,
+        charges_enabled: false,
+        payouts_enabled: false
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Verificar status no Stripe
-    const account = await stripe.accounts.retrieve(connectAccount.stripe_account_id);
-    
-    const chargesEnabled = account.charges_enabled;
-    const payoutsEnabled = account.payouts_enabled;
-    
-    // Atualizar status no banco se mudou
-    if (chargesEnabled !== connectAccount.charges_enabled || payoutsEnabled !== connectAccount.payouts_enabled) {
-      await supabase
-        .from("stripe_connect_accounts")
-        .update({
-          charges_enabled: chargesEnabled,
-          payouts_enabled: payoutsEnabled,
-          account_status: chargesEnabled && payoutsEnabled ? "active" : "pending",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("barbershop_id", barbershop.id);
-    }
+    try {
+      // Verificar status no Stripe
+      const account = await stripe.accounts.retrieve(connectAccount.stripe_account_id);
+      
+      const chargesEnabled = account.charges_enabled;
+      const payoutsEnabled = account.payouts_enabled;
+      
+      // Atualizar status no banco se mudou
+      if (chargesEnabled !== connectAccount.charges_enabled || payoutsEnabled !== connectAccount.payouts_enabled) {
+        await supabase
+          .from("stripe_connect_accounts")
+          .update({
+            charges_enabled: chargesEnabled,
+            payouts_enabled: payoutsEnabled,
+            account_status: chargesEnabled && payoutsEnabled ? "active" : "pending",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("barbershop_id", barbershop.id);
+      }
 
-    return new Response(JSON.stringify({ 
-      connected: true,
-      account_id: connectAccount.stripe_account_id,
-      account_status: chargesEnabled && payoutsEnabled ? "active" : "pending",
-      charges_enabled: chargesEnabled,
-      payouts_enabled: payoutsEnabled
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      return new Response(JSON.stringify({ 
+        connected: true,
+        account_id: connectAccount.stripe_account_id,
+        account_status: chargesEnabled && payoutsEnabled ? "active" : "pending",
+        charges_enabled: chargesEnabled,
+        payouts_enabled: payoutsEnabled
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (stripeError) {
+      console.error("Erro ao verificar conta no Stripe:", stripeError);
+      return new Response(JSON.stringify({ 
+        connected: true,
+        account_id: connectAccount.stripe_account_id,
+        account_status: connectAccount.account_status,
+        charges_enabled: connectAccount.charges_enabled || false,
+        payouts_enabled: connectAccount.payouts_enabled || false
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
   } catch (error) {
     console.error("Erro na função check-connect-account:", error);
     
     return new Response(JSON.stringify({ 
-      error: "Erro interno do servidor",
-      details: error.message 
+      connected: false,
+      account_status: null,
+      charges_enabled: false,
+      payouts_enabled: false
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

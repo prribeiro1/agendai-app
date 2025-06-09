@@ -21,10 +21,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!stripeSecretKey || !supabaseUrl || !supabaseKey) {
+      console.error("Configuração não encontrada");
       return new Response(JSON.stringify({ 
         error: "Configuração não encontrada" 
       }), {
         status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verificar se a chave do Stripe é válida
+    if (!stripeSecretKey.startsWith('sk_')) {
+      console.error("Chave do Stripe inválida");
+      return new Response(JSON.stringify({ 
+        error: "Chave da API do Stripe inválida" 
+      }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -39,6 +51,7 @@ serve(async (req) => {
     // Verificar autenticação
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.error("Header de autorização não encontrado");
       return new Response(JSON.stringify({ 
         error: "Não autenticado" 
       }), {
@@ -50,6 +63,7 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
+      console.error("Erro de autenticação:", userError);
       return new Response(JSON.stringify({ 
         error: "Usuário não autenticado" 
       }), {
@@ -57,6 +71,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log("Usuário autenticado:", user.email);
 
     // Buscar barbearia do usuário
     const { data: barbershop, error: barbershopError } = await supabase
@@ -66,6 +82,7 @@ serve(async (req) => {
       .single();
 
     if (barbershopError || !barbershop) {
+      console.error("Erro ao buscar barbearia:", barbershopError);
       return new Response(JSON.stringify({ 
         error: "Barbearia não encontrada" 
       }), {
@@ -73,6 +90,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log("Barbearia encontrada:", barbershop.name);
 
     // Verificar se já existe conta conectada
     const { data: existingAccount } = await supabase
@@ -82,6 +101,7 @@ serve(async (req) => {
       .single();
 
     if (existingAccount) {
+      console.log("Conta já existe:", existingAccount.stripe_account_id);
       return new Response(JSON.stringify({ 
         error: "Conta Stripe já existe para esta barbearia" 
       }), {
@@ -90,55 +110,87 @@ serve(async (req) => {
       });
     }
 
-    // Criar conta conectada no Stripe
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "BR",
-      email: user.email,
-      business_profile: {
-        name: barbershop.name,
-        product_description: "Serviços de barbearia",
-      },
-    });
-
-    // Salvar no banco
-    const { error: insertError } = await supabase
-      .from("stripe_connect_accounts")
-      .insert({
-        barbershop_id: barbershop.id,
-        stripe_account_id: account.id,
-        account_status: "pending",
+    // Tentar criar conta conectada no Stripe
+    try {
+      console.log("Criando conta conectada no Stripe...");
+      
+      const account = await stripe.accounts.create({
+        type: "express",
+        country: "BR",
+        email: user.email,
+        business_profile: {
+          name: barbershop.name,
+          product_description: "Serviços de barbearia",
+        },
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
       });
 
-    if (insertError) {
-      console.error("Erro ao salvar conta conectada:", insertError);
+      console.log("Conta criada no Stripe:", account.id);
+
+      // Salvar no banco
+      const { error: insertError } = await supabase
+        .from("stripe_connect_accounts")
+        .insert({
+          barbershop_id: barbershop.id,
+          stripe_account_id: account.id,
+          account_status: "pending",
+        });
+
+      if (insertError) {
+        console.error("Erro ao salvar conta conectada:", insertError);
+        return new Response(JSON.stringify({ 
+          error: "Erro ao salvar conta conectada" 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Criar link de onboarding
+      const origin = req.headers.get("origin") || "https://lovable.dev";
+      const accountLink = await stripe.accountLinks.create({
+        account: account.id,
+        refresh_url: `${origin}/dashboard?refresh=true`,
+        return_url: `${origin}/dashboard?setup=complete`,
+        type: "account_onboarding",
+      });
+
+      console.log("Link de onboarding criado");
+
       return new Response(JSON.stringify({ 
-        error: "Erro ao salvar conta conectada" 
+        account_id: account.id,
+        onboarding_url: accountLink.url
       }), {
-        status: 500,
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+    } catch (stripeError) {
+      console.error("Erro específico do Stripe:", stripeError);
+      
+      // Tratar erros específicos do Stripe
+      if (stripeError.message?.includes('platform profile')) {
+        return new Response(JSON.stringify({ 
+          error: "Você precisa configurar o perfil da plataforma no Stripe Connect. Acesse https://dashboard.stripe.com/settings/connect/platform-profile e complete a configuração." 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        error: "Erro ao criar conta no Stripe: " + stripeError.message 
+      }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Criar link de onboarding
-    const origin = req.headers.get("origin") || "https://lovable.dev";
-    const accountLink = await stripe.accountLinks.create({
-      account: account.id,
-      refresh_url: `${origin}?refresh=true`,
-      return_url: `${origin}?setup=complete`,
-      type: "account_onboarding",
-    });
-
-    return new Response(JSON.stringify({ 
-      account_id: account.id,
-      onboarding_url: accountLink.url
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
   } catch (error) {
-    console.error("Erro na função create-connect-account:", error);
+    console.error("Erro geral na função create-connect-account:", error);
     
     return new Response(JSON.stringify({ 
       error: "Erro interno do servidor",
