@@ -90,9 +90,13 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
           duration: 2000
         });
         
+        // Abrir em nova aba em vez de redirecionamento na mesma janela
+        window.open(data.onboarding_url, '_blank');
+        
+        // Aguardar um tempo e recarregar o status
         setTimeout(() => {
-          window.open(data.onboarding_url, '_blank');
-        }, 1000);
+          checkConnectStatus();
+        }, 3000);
       } else {
         throw new Error('URL de configuração não retornada');
       }
@@ -239,6 +243,16 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
                 <RefreshCw className={`h-4 w-4 mr-2 ${checking ? 'animate-spin' : ''}`} />
                 Atualizar Status
               </Button>
+              
+              <Button 
+                onClick={handleCreateAccount} 
+                disabled={loading}
+                variant="outline"
+                size="sm"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                {loading ? 'Configurando...' : 'Reconfigurar Conta'}
+              </Button>
             </div>
           )}
         </div>
@@ -281,6 +295,20 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
                     Abrir Stripe Platform Profile
                   </Button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {connectStatus.connected && (
+          <div className="bg-green-50 p-3 rounded-lg text-sm border border-green-200">
+            <div className="flex items-start gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+              <div>
+                <p className="text-green-800 font-medium mb-1">Conta Stripe configurada!</p>
+                <p className="text-green-700 text-xs">
+                  Sua conta de pagamentos está configurada. Os clientes já podem fazer agendamentos com pagamento online.
+                </p>
               </div>
             </div>
           </div>

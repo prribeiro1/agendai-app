@@ -101,14 +101,40 @@ serve(async (req) => {
       .single();
 
     if (existingAccount) {
-      console.log("Conta já existe:", existingAccount.stripe_account_id);
-      return new Response(JSON.stringify({ 
-        error: "Conta Stripe já configurada para esta barbearia",
-        account_id: existingAccount.stripe_account_id
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.log("Conta já existe, criando novo link de onboarding:", existingAccount.stripe_account_id);
+      
+      try {
+        // Verificar se a conta ainda existe no Stripe
+        const account = await stripe.accounts.retrieve(existingAccount.stripe_account_id);
+        
+        // Criar novo link de onboarding mesmo para conta existente
+        const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
+        const accountLink = await stripe.accountLinks.create({
+          account: existingAccount.stripe_account_id,
+          refresh_url: `${origin}/dashboard?refresh=true`,
+          return_url: `${origin}/dashboard?setup=complete`,
+          type: "account_onboarding",
+        });
+
+        console.log("Novo link de onboarding criado para conta existente");
+
+        return new Response(JSON.stringify({ 
+          account_id: existingAccount.stripe_account_id,
+          onboarding_url: accountLink.url
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (stripeError) {
+        console.error("Erro ao acessar conta existente:", stripeError);
+        return new Response(JSON.stringify({ 
+          error: "Erro ao acessar conta Stripe existente",
+          details: stripeError.message
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Tentar criar conta conectada no Stripe
@@ -151,7 +177,7 @@ serve(async (req) => {
       }
 
       // Criar link de onboarding
-      const origin = req.headers.get("origin") || "https://lovable.dev";
+      const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
       const accountLink = await stripe.accountLinks.create({
         account: account.id,
         refresh_url: `${origin}/dashboard?refresh=true`,
