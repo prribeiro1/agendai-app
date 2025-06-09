@@ -111,8 +111,8 @@ serve(async (req) => {
         const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
         const accountLink = await stripe.accountLinks.create({
           account: existingAccount.stripe_account_id,
-          refresh_url: `${origin}/dashboard?refresh=true`,
-          return_url: `${origin}/dashboard?setup=complete`,
+          refresh_url: `${origin}/?refresh=true`,
+          return_url: `${origin}/?setup=complete`,
           type: "account_onboarding",
         });
 
@@ -180,8 +180,8 @@ serve(async (req) => {
       const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
       const accountLink = await stripe.accountLinks.create({
         account: account.id,
-        refresh_url: `${origin}/dashboard?refresh=true`,
-        return_url: `${origin}/dashboard?setup=complete`,
+        refresh_url: `${origin}/?refresh=true`,
+        return_url: `${origin}/?setup=complete`,
         type: "account_onboarding",
       });
 

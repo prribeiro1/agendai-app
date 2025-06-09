@@ -62,6 +62,16 @@ const App = () => {
         toast.info('Processo de assinatura cancelado');
         // Limpar os parâmetros da URL
         window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (urlParams.get('setup')) {
+        if (urlParams.get('setup') === 'complete') {
+          toast.success('Configuração do Stripe Connect concluída!');
+        }
+        // Limpar os parâmetros da URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (urlParams.get('refresh')) {
+        toast.info('Recarregue a página para atualizar o status');
+        // Limpar os parâmetros da URL
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (error) {
       console.error('Erro ao verificar assinatura:', error);

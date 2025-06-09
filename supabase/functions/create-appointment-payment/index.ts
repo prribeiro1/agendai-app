@@ -47,7 +47,7 @@ serve(async (req) => {
       .eq("barbershop_id", appointmentData.barbershop_id)
       .single();
 
-    if (!connectAccount || !connectAccount.charges_enabled) {
+    if (!connectAccount) {
       return new Response(JSON.stringify({ 
         error: "Esta barbearia ainda não configurou os pagamentos online" 
       }), {
@@ -56,6 +56,8 @@ serve(async (req) => {
       });
     }
 
+    console.log("Conta conectada encontrada:", connectAccount.stripe_account_id);
+
     // Configurar métodos de pagamento baseado na escolha
     let payment_method_types = [];
     if (paymentMethod === 'card') {
@@ -63,6 +65,9 @@ serve(async (req) => {
     } else if (paymentMethod === 'pix') {
       payment_method_types = ['card']; // PIX ainda não disponível no Brasil via Stripe
     }
+
+    // Obter a origem para as URLs de sucesso e cancelamento
+    const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
 
     // Criar sessão de checkout
     const session = await stripe.checkout.sessions.create({
@@ -81,8 +86,8 @@ serve(async (req) => {
         },
       ],
       mode: 'payment',
-      success_url: `${req.headers.get("origin")}/agendar/${appointmentData.barbershop_slug}?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get("origin")}/agendar/${appointmentData.barbershop_slug}?canceled=true`,
+      success_url: `${origin}/pagamento-sucesso?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/agendar/${appointmentData.barbershop_slug}?canceled=true`,
       metadata: {
         barbershop_id: appointmentData.barbershop_id,
         service_id: appointmentData.service_id,
