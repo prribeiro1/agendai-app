@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, ExternalLink, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { CreditCard, ExternalLink, AlertCircle, CheckCircle, RefreshCw, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -62,11 +62,21 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
       if (error) {
         console.error('Erro ao criar conta Connect:', error);
         
-        // Tratar erro específico do Stripe Connect não habilitado
-        if (error.message?.includes('signed up for Connect')) {
-          toast.error('Para usar esta funcionalidade, você precisa habilitar o Stripe Connect na sua conta Stripe. Acesse o dashboard do Stripe e ative o Connect.', {
+        // Tratar diferentes tipos de erro
+        if (error.message?.includes('platform profile') || error.message?.includes('CONFIGURAÇÃO NECESSÁRIA')) {
+          toast.error('Configuração do Stripe necessária', {
+            description: 'Você precisa completar o perfil da plataforma no Stripe. Verifique as instruções abaixo.',
             duration: 8000
           });
+          return;
+        }
+        
+        if (error.message?.includes('já configurada')) {
+          toast.error('Conta já configurada', {
+            description: 'Esta barbearia já possui uma conta de pagamentos.',
+            duration: 5000
+          });
+          checkConnectStatus(); // Recarregar status
           return;
         }
         
@@ -90,16 +100,22 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
       console.error('Erro ao criar conta Stripe Connect:', error);
       
       let errorMessage = 'Erro ao criar conta de pagamentos';
-      if (error.message?.includes('já existe')) {
-        errorMessage = 'Você já possui uma conta de pagamentos configurada';
-        checkConnectStatus(); // Recarregar status
-      } else if (error.message?.includes('Connect')) {
-        errorMessage = 'Stripe Connect não está habilitado. Ative no dashboard do Stripe primeiro.';
+      let errorDescription = '';
+      
+      if (error.message?.includes('platform profile')) {
+        errorMessage = 'Configuração do Stripe necessária';
+        errorDescription = 'Complete o perfil da plataforma no dashboard do Stripe.';
+      } else if (error.message?.includes('losses') || error.message?.includes('liability')) {
+        errorMessage = 'Configuração de responsabilidade necessária';
+        errorDescription = 'Configure a responsabilidade de perdas no Stripe Connect.';
       } else {
-        errorMessage = error.message || 'Erro inesperado. Tente novamente.';
+        errorDescription = error.message || 'Tente novamente em alguns instantes.';
       }
       
-      toast.error(errorMessage);
+      toast.error(errorMessage, {
+        description: errorDescription,
+        duration: 8000
+      });
     } finally {
       setLoading(false);
     }
@@ -146,7 +162,15 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {getStatusIcon()}
+          {connectStatus.connected ? (
+            connectStatus.charges_enabled && connectStatus.payouts_enabled ? (
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+            )
+          ) : (
+            <AlertCircle className="h-5 w-5 text-red-600" />
+          )}
           Configuração de Pagamentos
         </CardTitle>
       </CardHeader>
@@ -161,7 +185,20 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
               }
             </p>
           </div>
-          {getStatusBadge()}
+          <Badge variant={
+            connectStatus.connected && connectStatus.charges_enabled && connectStatus.payouts_enabled 
+              ? "default" 
+              : connectStatus.connected 
+              ? "secondary" 
+              : "destructive"
+          }>
+            {connectStatus.connected && connectStatus.charges_enabled && connectStatus.payouts_enabled 
+              ? "Ativo" 
+              : connectStatus.connected 
+              ? "Pendente" 
+              : "Não configurado"
+            }
+          </Badge>
         </div>
 
         {connectStatus.connected && (
@@ -206,24 +243,46 @@ export const StripeConnectManager: React.FC<StripeConnectManagerProps> = ({ barb
           )}
         </div>
 
+        {/* Instruções de configuração */}
         {!connectStatus.connected && (
-          <div className="bg-blue-50 p-3 rounded-lg text-sm">
-            <p className="text-blue-800 font-medium mb-1">Por que configurar?</p>
-            <ul className="text-blue-700 space-y-1 text-xs">
-              <li>• Receba pagamentos diretamente na sua conta</li>
-              <li>• Clientes podem pagar online com cartão ou PIX</li>
-              <li>• Transferências automáticas para sua conta bancária</li>
-              <li>• Controle total sobre seus recebimentos</li>
-            </ul>
-          </div>
-        )}
+          <div className="space-y-3">
+            <div className="bg-blue-50 p-3 rounded-lg text-sm">
+              <p className="text-blue-800 font-medium mb-1">Por que configurar?</p>
+              <ul className="text-blue-700 space-y-1 text-xs">
+                <li>• Receba pagamentos diretamente na sua conta</li>
+                <li>• Clientes podem pagar online com cartão ou PIX</li>
+                <li>• Transferências automáticas para sua conta bancária</li>
+                <li>• Controle total sobre seus recebimentos</li>
+              </ul>
+            </div>
 
-        {!connectStatus.connected && (
-          <div className="bg-yellow-50 p-3 rounded-lg text-sm border border-yellow-200">
-            <p className="text-yellow-800 font-medium mb-1">⚠️ Pré-requisito</p>
-            <p className="text-yellow-700 text-xs">
-              Certifique-se de que o Stripe Connect está habilitado na sua conta Stripe antes de configurar.
-            </p>
+            <div className="bg-amber-50 p-3 rounded-lg text-sm border border-amber-200">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-amber-600 mt-0.5" />
+                <div>
+                  <p className="text-amber-800 font-medium mb-1">Configuração necessária no Stripe</p>
+                  <p className="text-amber-700 text-xs mb-2">
+                    Antes de configurar, você precisa completar seu perfil da plataforma no Stripe:
+                  </p>
+                  <ol className="text-amber-700 text-xs space-y-1 ml-3">
+                    <li>1. Acesse o dashboard do Stripe</li>
+                    <li>2. Vá em Settings → Connect → Platform profile</li>
+                    <li>3. Complete todas as seções obrigatórias</li>
+                    <li>4. Configure a responsabilidade de perdas</li>
+                    <li>5. Volte aqui e clique em "Configurar Conta"</li>
+                  </ol>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => window.open('https://dashboard.stripe.com/settings/connect/platform-profile', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Abrir Stripe Platform Profile
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>

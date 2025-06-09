@@ -23,7 +23,7 @@ serve(async (req) => {
     if (!stripeSecretKey || !supabaseUrl || !supabaseKey) {
       console.error("Configuração não encontrada");
       return new Response(JSON.stringify({ 
-        error: "Configuração não encontrada" 
+        error: "Configuração do servidor incompleta" 
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -53,7 +53,7 @@ serve(async (req) => {
     if (!authHeader) {
       console.error("Header de autorização não encontrado");
       return new Response(JSON.stringify({ 
-        error: "Não autenticado" 
+        error: "Usuário não autenticado" 
       }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -103,7 +103,8 @@ serve(async (req) => {
     if (existingAccount) {
       console.log("Conta já existe:", existingAccount.stripe_account_id);
       return new Response(JSON.stringify({ 
-        error: "Conta Stripe já existe para esta barbearia" 
+        error: "Conta Stripe já configurada para esta barbearia",
+        account_id: existingAccount.stripe_account_id
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -142,7 +143,7 @@ serve(async (req) => {
       if (insertError) {
         console.error("Erro ao salvar conta conectada:", insertError);
         return new Response(JSON.stringify({ 
-          error: "Erro ao salvar conta conectada" 
+          error: "Erro ao salvar conta conectada: " + insertError.message 
         }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -171,10 +172,25 @@ serve(async (req) => {
     } catch (stripeError) {
       console.error("Erro específico do Stripe:", stripeError);
       
-      // Tratar erros específicos do Stripe
+      // Tratar erros específicos do Stripe de forma mais detalhada
       if (stripeError.message?.includes('platform profile')) {
         return new Response(JSON.stringify({ 
-          error: "Você precisa configurar o perfil da plataforma no Stripe Connect. Acesse https://dashboard.stripe.com/settings/connect/platform-profile e complete a configuração." 
+          error: "CONFIGURAÇÃO NECESSÁRIA: Você precisa completar o perfil da sua plataforma no Stripe Connect.",
+          details: "Acesse https://dashboard.stripe.com/settings/connect/platform-profile e complete todas as seções obrigatórias.",
+          stripe_error: stripeError.message,
+          action_required: "platform_profile"
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      if (stripeError.message?.includes('losses')) {
+        return new Response(JSON.stringify({ 
+          error: "CONFIGURAÇÃO NECESSÁRIA: Você precisa revisar as responsabilidades de perdas para contas conectadas.",
+          details: "Acesse https://dashboard.stripe.com/settings/connect/platform-profile e complete a seção 'Loss liability'.",
+          stripe_error: stripeError.message,
+          action_required: "loss_liability"
         }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -182,7 +198,9 @@ serve(async (req) => {
       }
       
       return new Response(JSON.stringify({ 
-        error: "Erro ao criar conta no Stripe: " + stripeError.message 
+        error: "Erro na criação da conta Stripe",
+        details: stripeError.message,
+        stripe_error: stripeError.message
       }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
