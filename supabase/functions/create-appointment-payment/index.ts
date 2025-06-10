@@ -58,7 +58,7 @@ serve(async (req) => {
 
     console.log("Conta conectada encontrada:", connectAccount.stripe_account_id);
 
-    // Verificar o status da conta no Stripe para confirmar se está pronta para receber pagamentos
+    // Verificar o status da conta no Stripe
     try {
       const account = await stripe.accounts.retrieve(connectAccount.stripe_account_id);
       console.log("Status da conta:", {
@@ -66,6 +66,10 @@ serve(async (req) => {
         transfers_enabled: account.capabilities?.transfers,
         details_submitted: account.details_submitted
       });
+
+      // Verificar se é uma chave de teste
+      const isTestKey = stripeSecretKey.startsWith('sk_test_');
+      console.log("Modo de teste:", isTestKey);
 
       if (!account.charges_enabled) {
         return new Response(JSON.stringify({ 
@@ -76,8 +80,9 @@ serve(async (req) => {
         });
       }
 
-      // Verificar se a conta pode receber transferências
-      if (account.capabilities?.transfers !== 'active') {
+      // Para contas em produção, verificar se pode receber transferências
+      // Para contas de teste, permitir mesmo se transfers não estiver ativo
+      if (!isTestKey && account.capabilities?.transfers !== 'active') {
         return new Response(JSON.stringify({ 
           error: "Os pagamentos online estão sendo processados pelo Stripe. A barbearia precisa completar algumas verificações adicionais. Por favor, tente o pagamento no local ou entre em contato com a barbearia." 
         }), {
@@ -106,6 +111,15 @@ serve(async (req) => {
 
     // Obter a origem para as URLs de sucesso e cancelamento
     const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
+
+    // Calcular taxa da plataforma (5%)
+    const applicationFeeAmount = Math.round(servicePrice * 100 * 0.05);
+    
+    console.log("Criando sessão de checkout:", {
+      servicePrice,
+      applicationFeeAmount,
+      connectAccountId: connectAccount.stripe_account_id
+    });
 
     // Criar sessão de checkout
     const session = await stripe.checkout.sessions.create({
@@ -138,14 +152,14 @@ serve(async (req) => {
         notes: appointmentData.notes || '',
       },
       payment_intent_data: {
-        application_fee_amount: Math.round(servicePrice * 100 * 0.05), // 5% de taxa da plataforma
+        application_fee_amount: applicationFeeAmount,
         transfer_data: {
           destination: connectAccount.stripe_account_id,
         },
       },
     });
 
-    console.log("Sessão criada:", session.id);
+    console.log("Sessão criada com sucesso:", session.id);
 
     return new Response(JSON.stringify({ 
       url: session.url 
