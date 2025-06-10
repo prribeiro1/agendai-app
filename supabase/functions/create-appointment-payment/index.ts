@@ -58,6 +58,44 @@ serve(async (req) => {
 
     console.log("Conta conectada encontrada:", connectAccount.stripe_account_id);
 
+    // Verificar o status da conta no Stripe para confirmar se está pronta para receber pagamentos
+    try {
+      const account = await stripe.accounts.retrieve(connectAccount.stripe_account_id);
+      console.log("Status da conta:", {
+        charges_enabled: account.charges_enabled,
+        transfers_enabled: account.capabilities?.transfers,
+        details_submitted: account.details_submitted
+      });
+
+      if (!account.charges_enabled) {
+        return new Response(JSON.stringify({ 
+          error: "Esta barbearia ainda está finalizando a configuração dos pagamentos. Tente novamente em alguns minutos ou entre em contato com a barbearia." 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verificar se a conta pode receber transferências
+      if (account.capabilities?.transfers !== 'active') {
+        return new Response(JSON.stringify({ 
+          error: "Os pagamentos online estão sendo processados pelo Stripe. A barbearia precisa completar algumas verificações adicionais. Por favor, tente o pagamento no local ou entre em contato com a barbearia." 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+    } catch (stripeError) {
+      console.error("Erro ao verificar conta Stripe:", stripeError);
+      return new Response(JSON.stringify({ 
+        error: "Erro ao verificar configuração de pagamentos da barbearia" 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Configurar métodos de pagamento baseado na escolha
     let payment_method_types = [];
     if (paymentMethod === 'card') {
