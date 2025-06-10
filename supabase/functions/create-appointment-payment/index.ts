@@ -20,6 +20,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
+    console.log("Environment check:", {
+      hasStripeKey: !!stripeSecretKey,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseKey: !!supabaseKey,
+      stripeKeyType: stripeSecretKey ? (stripeSecretKey.startsWith('sk_test_') ? 'test' : 'live') : 'none'
+    });
+    
     if (!stripeSecretKey || !supabaseUrl || !supabaseKey) {
       console.error("Missing environment variables");
       return new Response(JSON.stringify({ 
@@ -30,25 +37,74 @@ serve(async (req) => {
       });
     }
 
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2022-11-15",
-      httpClient: Stripe.createFetchHttpClient(),
+    // Parse request body with better error handling
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log("Request body parsed successfully:", JSON.stringify(requestBody, null, 2));
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError);
+      return new Response(JSON.stringify({ 
+        error: "Dados de requisição inválidos" 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { appointmentData, servicePrice, paymentMethod } = requestBody;
+    
+    // Validate required fields
+    if (!appointmentData || !servicePrice || !paymentMethod) {
+      console.error("Missing required fields:", { 
+        hasAppointmentData: !!appointmentData, 
+        hasServicePrice: !!servicePrice, 
+        hasPaymentMethod: !!paymentMethod 
+      });
+      return new Response(JSON.stringify({ 
+        error: "Dados obrigatórios não fornecidos" 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log("Dados recebidos:", { 
+      barbershop_id: appointmentData.barbershop_id,
+      service_name: appointmentData.service_name,
+      servicePrice, 
+      paymentMethod 
     });
 
+    // Initialize Stripe
+    let stripe;
+    try {
+      stripe = new Stripe(stripeSecretKey, {
+        apiVersion: "2022-11-15",
+        httpClient: Stripe.createFetchHttpClient(),
+      });
+      console.log("Stripe initialized successfully");
+    } catch (stripeInitError) {
+      console.error("Failed to initialize Stripe:", stripeInitError);
+      return new Response(JSON.stringify({ 
+        error: "Erro na inicialização do sistema de pagamento" 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    const { appointmentData, servicePrice, paymentMethod } = await req.json();
-    
-    console.log("Dados recebidos:", { appointmentData, servicePrice, paymentMethod });
 
     // Verificar se a barbearia tem conta Stripe Connect configurada
+    console.log("Buscando conta conectada para barbearia:", appointmentData.barbershop_id);
     const { data: connectAccount, error: connectError } = await supabase
       .from("stripe_connect_accounts")
       .select("stripe_account_id, charges_enabled")
       .eq("barbershop_id", appointmentData.barbershop_id)
       .single();
 
-    if (connectError || !connectAccount) {
+    if (connectError) {
       console.error("Erro ao buscar conta conectada:", connectError);
       return new Response(JSON.stringify({ 
         error: "Esta barbearia ainda não configurou os pagamentos online" 
@@ -58,52 +114,24 @@ serve(async (req) => {
       });
     }
 
-    console.log("Conta conectada encontrada:", connectAccount.stripe_account_id);
+    if (!connectAccount) {
+      console.error("Nenhuma conta conectada encontrada");
+      return new Response(JSON.stringify({ 
+        error: "Esta barbearia ainda não configurou os pagamentos online" 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log("Conta conectada encontrada:", {
+      stripe_account_id: connectAccount.stripe_account_id,
+      charges_enabled: connectAccount.charges_enabled
+    });
 
     // Verificar se é uma chave de teste
     const isTestKey = stripeSecretKey.startsWith('sk_test_');
     console.log("Modo de teste:", isTestKey);
-
-    // Verificar o status da conta no Stripe apenas se não for teste
-    if (!isTestKey) {
-      try {
-        const account = await stripe.accounts.retrieve(connectAccount.stripe_account_id);
-        console.log("Status da conta:", {
-          charges_enabled: account.charges_enabled,
-          transfers_enabled: account.capabilities?.transfers,
-          details_submitted: account.details_submitted
-        });
-
-        if (!account.charges_enabled) {
-          return new Response(JSON.stringify({ 
-            error: "Esta barbearia ainda está finalizando a configuração dos pagamentos. Tente novamente em alguns minutos ou entre em contato com a barbearia." 
-          }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        if (account.capabilities?.transfers !== 'active') {
-          return new Response(JSON.stringify({ 
-            error: "Os pagamentos online estão sendo processados pelo Stripe. A barbearia precisa completar algumas verificações adicionais. Por favor, tente o pagamento no local ou entre em contato com a barbearia." 
-          }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-      } catch (stripeError) {
-        console.error("Erro ao verificar conta Stripe:", stripeError);
-        return new Response(JSON.stringify({ 
-          error: "Erro ao verificar configuração de pagamentos da barbearia" 
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } else {
-      console.log("Modo de teste detectado - pulando validações de conta");
-    }
 
     // Configurar métodos de pagamento baseado na escolha
     let payment_method_types = [];
@@ -113,22 +141,26 @@ serve(async (req) => {
       payment_method_types = ['card']; // PIX ainda não disponível no Brasil via Stripe
     }
 
+    console.log("Métodos de pagamento configurados:", payment_method_types);
+
     // Obter a origem para as URLs de sucesso e cancelamento
     const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
+    console.log("Origin detectada:", origin);
 
-    // Calcular taxa da plataforma (5%)
-    const applicationFeeAmount = Math.round(servicePrice * 100 * 0.05);
+    // Calcular taxa da plataforma (5%) apenas se não for teste
+    const applicationFeeAmount = isTestKey ? 0 : Math.round(servicePrice * 100 * 0.05);
     
-    console.log("Criando sessão de checkout:", {
+    console.log("Configuração da sessão:", {
       servicePrice,
       applicationFeeAmount,
       connectAccountId: connectAccount.stripe_account_id,
-      isTestMode: isTestKey
+      isTestMode: isTestKey,
+      origin
     });
 
     try {
       // Criar sessão de checkout
-      const session = await stripe.checkout.sessions.create({
+      const sessionConfig = {
         payment_method_types,
         line_items: [
           {
@@ -157,15 +189,26 @@ serve(async (req) => {
           client_email: appointmentData.client_email || '',
           notes: appointmentData.notes || '',
         },
-        payment_intent_data: {
+      };
+
+      // Adicionar configuração de taxa apenas se não for teste e a conta suportar
+      if (!isTestKey && applicationFeeAmount > 0) {
+        sessionConfig.payment_intent_data = {
           application_fee_amount: applicationFeeAmount,
           transfer_data: {
             destination: connectAccount.stripe_account_id,
           },
-        },
-      });
+        };
+      }
 
-      console.log("Sessão criada com sucesso:", session.id);
+      console.log("Criando sessão Stripe com configuração:", JSON.stringify(sessionConfig, null, 2));
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
+
+      console.log("Sessão criada com sucesso:", {
+        sessionId: session.id,
+        url: session.url
+      });
 
       return new Response(JSON.stringify({ 
         url: session.url 
@@ -175,69 +218,18 @@ serve(async (req) => {
       });
 
     } catch (stripeSessionError) {
-      console.error("Erro ao criar sessão Stripe:", stripeSessionError);
-      
-      // Se for erro de capacidades no modo de teste, tentar sem application fee
-      if (isTestKey && stripeSessionError.message?.includes('insufficient_capabilities')) {
-        console.log("Tentando criar sessão sem application fee para modo de teste");
-        
-        try {
-          const sessionWithoutFee = await stripe.checkout.sessions.create({
-            payment_method_types,
-            line_items: [
-              {
-                price_data: {
-                  currency: 'brl',
-                  product_data: {
-                    name: `${appointmentData.service_name} - ${appointmentData.barber_name}`,
-                    description: `Agendamento para ${appointmentData.appointment_date} às ${appointmentData.appointment_time}`,
-                  },
-                  unit_amount: Math.round(servicePrice * 100),
-                },
-                quantity: 1,
-              },
-            ],
-            mode: 'payment',
-            success_url: `${origin}/pagamento-sucesso?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${origin}/agendar/${appointmentData.barbershop_slug}?canceled=true`,
-            metadata: {
-              barbershop_id: appointmentData.barbershop_id,
-              service_id: appointmentData.service_id,
-              barber_id: appointmentData.barber_id,
-              appointment_date: appointmentData.appointment_date,
-              appointment_time: appointmentData.appointment_time,
-              client_name: appointmentData.client_name,
-              client_phone: appointmentData.client_phone,
-              client_email: appointmentData.client_email || '',
-              notes: appointmentData.notes || '',
-            },
-            // Remover payment_intent_data para modo de teste
-          });
-
-          console.log("Sessão criada sem taxa para teste:", sessionWithoutFee.id);
-
-          return new Response(JSON.stringify({ 
-            url: sessionWithoutFee.url 
-          }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-
-        } catch (fallbackError) {
-          console.error("Erro mesmo sem application fee:", fallbackError);
-          return new Response(JSON.stringify({ 
-            error: "Erro ao criar sessão de pagamento de teste",
-            details: fallbackError.message 
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
+      console.error("Erro detalhado ao criar sessão Stripe:", {
+        message: stripeSessionError.message,
+        type: stripeSessionError.type,
+        code: stripeSessionError.code,
+        statusCode: stripeSessionError.statusCode,
+        requestId: stripeSessionError.requestId
+      });
       
       return new Response(JSON.stringify({ 
         error: "Erro ao criar sessão de pagamento",
-        details: stripeSessionError.message 
+        details: stripeSessionError.message,
+        code: stripeSessionError.code || 'unknown'
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -245,7 +237,11 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error("Erro geral na função create-appointment-payment:", error);
+    console.error("Erro geral na função create-appointment-payment:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     
     return new Response(JSON.stringify({ 
       error: "Erro interno do servidor",
