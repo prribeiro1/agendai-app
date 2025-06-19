@@ -48,25 +48,23 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
-  // Iniciar o processo de assinatura apenas com cartão
+  // Iniciar o processo de assinatura com Mercado Pago
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      console.log('Iniciando processo de assinatura com cartão...');
+      console.log('Iniciando processo de assinatura com Mercado Pago...');
       
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { paymentMethod: 'card' }
-      });
+      const { data, error } = await supabase.functions.invoke('create-mercadopago-subscription');
       
       if (error) {
-        console.error('Erro na função create-checkout:', error);
+        console.error('Erro na função create-mercadopago-subscription:', error);
         throw error;
       }
       
-      console.log('Checkout criado com sucesso:', data);
+      console.log('Assinatura criada com sucesso:', data);
       
       if (data?.url) {
-        toast.success('Redirecionando para o checkout...', {
+        toast.success('Redirecionando para o pagamento...', {
           duration: 2000,
           icon: <CheckCircle2 className="h-4 w-4" />
         });
@@ -76,26 +74,20 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
           window.location.href = data.url;
         }, 1000);
       } else {
-        throw new Error('URL de checkout não retornada');
+        throw new Error('URL de pagamento não retornada');
       }
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
+      console.error('Erro ao processar assinatura:', error);
       
-      let errorMessage = 'Erro ao processar pagamento';
+      let errorMessage = 'Erro ao processar assinatura';
       
-      if (error.message?.includes('Chave da API do Stripe')) {
-        errorMessage = 'Problema com a configuração do sistema de pagamento. Entre em contato com o suporte.';
-      } else if (error.message?.includes('sk_test_') || error.message?.includes('sk_live_')) {
-        errorMessage = 'Chave da API do Stripe inválida. Verifique a configuração.';
-      } else if (error.message?.includes('não autenticado') || error.message?.includes('Sessão expirada')) {
+      if (error.message?.includes('não autenticado') || error.message?.includes('Sessão expirada')) {
         errorMessage = 'Sua sessão expirou. Faça login novamente.';
         setTimeout(() => {
           window.location.reload();
         }, 2000);
       } else if (error.message?.includes('barbearia')) {
         errorMessage = 'Erro ao verificar sua barbearia. Atualize a página e tente novamente.';
-      } else if (error.message?.includes('Edge Function returned a non-2xx status code')) {
-        errorMessage = 'Erro de comunicação com o servidor. Verifique a configuração da API do Stripe.';
       } else {
         errorMessage = error.message || 'Erro inesperado. Tente novamente.';
       }
@@ -112,40 +104,19 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
-  // Abrir portal do cliente para gerenciar assinatura
+  // Abrir portal do Mercado Pago para gerenciar assinatura
   const handleManageSubscription = async () => {
     setLoading(true);
     try {
-      console.log('Abrindo portal do cliente...');
+      console.log('Abrindo portal de assinatura do Mercado Pago...');
       
-      const { data, error } = await supabase.functions.invoke('customer-portal');
+      // Por enquanto, redirecionar para o site do Mercado Pago
+      window.open('https://www.mercadopago.com.br/assinaturas', '_blank');
       
-      if (error) {
-        console.error('Erro na função customer-portal:', error);
-        throw error;
-      }
-      
-      console.log('Portal criado com sucesso:', data);
-      
-      if (data?.url) {
-        console.log('Redirecionando para portal:', data.url);
-        window.location.href = data.url;
-      } else {
-        throw new Error('URL do portal não retornada');
-      }
+      toast.info('Redirecionado para o Mercado Pago para gerenciar sua assinatura');
     } catch (error) {
       console.error('Erro ao abrir portal de assinatura:', error);
-      
-      let errorMessage = 'Erro ao abrir configurações de assinatura';
-      if (error.message?.includes('Nenhuma assinatura encontrada')) {
-        errorMessage = 'Você precisa ter uma assinatura ativa para acessar o portal';
-      } else if (error.message?.includes('não encontrado no sistema')) {
-        errorMessage = 'Dados de pagamento não encontrados. Entre em contato com o suporte.';
-      } else {
-        errorMessage = error.message || 'Erro inesperado. Tente novamente.';
-      }
-      
-      toast.error(errorMessage);
+      toast.error('Erro ao abrir configurações de assinatura');
     } finally {
       setLoading(false);
     }

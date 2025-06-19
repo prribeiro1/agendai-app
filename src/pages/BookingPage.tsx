@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Scissors, Clock, Phone, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { PaymentMethodSelector } from '@/components/booking/PaymentMethodSelector';
+import { useMercadoPagoPayment } from '@/hooks/useMercadoPagoPayment';
 
 interface Barbershop {
   id: string;
@@ -53,7 +54,8 @@ const BookingPage = () => {
     notes: ''
   });
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
-  const [processingPayment, setProcessingPayment] = useState(false);
+  
+  const { createPayment, loading: processingPayment } = useMercadoPagoPayment();
 
   const allTimeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
@@ -251,20 +253,12 @@ const BookingPage = () => {
     const selectedService = services.find(s => s.id === form.service_id);
     const selectedBarber = barbers.find(b => b.id === form.barber_id);
     
-    if (!selectedService || !selectedBarber) {
+    if (!selectedService || !selectedBarber || !barbershop) {
       toast.error('Dados do agendamento incompletos');
       return;
     }
 
-    if (method === 'cash') {
-      // Pagamento no local, criar agendamento sem pagamento online
-      await createCashAppointment();
-      return;
-    }
-
     try {
-      setProcessingPayment(true);
-      
       const appointmentData = {
         barbershop_id: barbershop.id,
         barbershop_slug: barbershop.slug,
@@ -280,37 +274,37 @@ const BookingPage = () => {
         notes: form.notes
       };
 
-      console.log('Criando sessão de pagamento:', { appointmentData, servicePrice: selectedService.price, paymentMethod: method });
-
-      const { data, error } = await supabase.functions.invoke('create-appointment-payment', {
-        body: {
-          appointmentData,
-          servicePrice: selectedService.price,
-          paymentMethod: method
+      const result = await createPayment(appointmentData, selectedService.price, method);
+      
+      if (result.success) {
+        if (result.type === 'cash') {
+          // Agendamento com pagamento no local criado
+          setForm({
+            service_id: '',
+            barber_id: '',
+            appointment_date: new Date().toISOString().split('T')[0],
+            appointment_time: '',
+            client_name: '',
+            client_phone: '',
+            client_email: '',
+            notes: ''
+          });
+          setShowPaymentOptions(false);
+          await checkAvailableTimeSlots();
+        } else if (result.type === 'online' && result.url) {
+          // Redirecionar para Mercado Pago
+          toast.success('Redirecionando para o pagamento...', {
+            duration: 2000
+          });
+          
+          setTimeout(() => {
+            window.location.href = result.url;
+          }, 1000);
         }
-      });
-
-      if (error) {
-        console.error('Erro na função create-appointment-payment:', error);
-        throw error;
-      }
-
-      if (data?.url) {
-        toast.success('Redirecionando para o pagamento...', {
-          duration: 2000
-        });
-        
-        setTimeout(() => {
-          window.location.href = data.url;
-        }, 1000);
-      } else {
-        throw new Error('URL de pagamento não retornada');
       }
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
-      toast.error('Erro ao processar pagamento: ' + (error.message || 'Erro desconhecido'));
-    } finally {
-      setProcessingPayment(false);
+      toast.error('Erro ao processar pagamento. Tente novamente.');
     }
   };
 
