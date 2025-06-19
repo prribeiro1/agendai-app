@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, CheckCircle, AlertCircle, ExternalLink, Info } from 'lucide-react';
+import { CreditCard, CheckCircle, ExternalLink, Info } from 'lucide-react';
 
 interface MercadoPagoManagerProps {
   barbershopId: string;
@@ -94,12 +94,12 @@ export const MercadoPagoManager: React.FC<MercadoPagoManagerProps> = ({ barbersh
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 text-blue-600 mt-0.5" />
             <div>
-              <p className="text-blue-800 font-medium mb-1">Vantagens do Mercado Pago</p>
+              <p className="text-blue-800 font-medium mb-1">Como funciona o recebimento</p>
               <ul className="text-blue-700 space-y-1 text-xs">
-                <li>• PIX grátis para pessoa física</li>
-                <li>• Taxas competitivas no cartão</li>
-                <li>• Ideal para o mercado brasileiro</li>
-                <li>• Suporte completo a todos os métodos</li>
+                <li>• Dinheiro cai direto na sua conta Mercado Pago</li>
+                <li>• Transfere automaticamente para sua conta bancária</li>
+                <li>• PIX instantâneo, cartão em até 14 dias</li>
+                <li>• Sem necessidade de configuração adicional</li>
               </ul>
             </div>
           </div>
