@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CreditCard, ExternalLink, Users, Calendar, Scissors, CheckCircle, BarChart3 } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
-import { StripeConnectManager } from './StripeConnectManager';
+import { MercadoPagoManager } from './MercadoPagoManager';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
 import { AppointmentsManager } from './AppointmentsManager';
@@ -130,8 +130,8 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         </CardContent>
       </Card>
 
-      {/* Configuração de Pagamentos */}
-      <StripeConnectManager barbershopId={barbershop.id} />
+      {/* Configuração de Pagamentos - Mercado Pago */}
+      <MercadoPagoManager barbershopId={barbershop.id} />
 
       {/* Link Público */}
       <Card>

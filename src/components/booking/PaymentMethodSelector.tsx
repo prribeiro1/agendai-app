@@ -33,17 +33,6 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Button
             variant="outline"
-            className="h-20 flex flex-col gap-2 hover:bg-blue-50 hover:border-blue-300"
-            onClick={() => onPaymentMethodSelect('card')}
-            disabled={loading}
-          >
-            <CreditCard className="h-6 w-6 text-blue-600" />
-            <span className="font-medium">Cartão</span>
-            <span className="text-xs text-gray-500">Crédito ou Débito</span>
-          </Button>
-
-          <Button
-            variant="outline"
             className="h-20 flex flex-col gap-2 hover:bg-green-50 hover:border-green-300"
             onClick={() => onPaymentMethodSelect('pix')}
             disabled={loading}
@@ -51,6 +40,17 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
             <Smartphone className="h-6 w-6 text-green-600" />
             <span className="font-medium">PIX</span>
             <span className="text-xs text-gray-500">Pagamento instantâneo</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            className="h-20 flex flex-col gap-2 hover:bg-blue-50 hover:border-blue-300"
+            onClick={() => onPaymentMethodSelect('card')}
+            disabled={loading}
+          >
+            <CreditCard className="h-6 w-6 text-blue-600" />
+            <span className="font-medium">Cartão</span>
+            <span className="text-xs text-gray-500">Crédito ou Débito</span>
           </Button>
         </div>
 
@@ -68,7 +68,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         </div>
 
         <div className="text-center text-xs text-gray-500 mt-4">
-          <p>💳 Pagamentos processados pelo Mercado Pago</p>
+          <p>💳 Pagamentos online processados pelo Mercado Pago</p>
           <p>🔒 Seus dados estão seguros e protegidos</p>
         </div>
       </CardContent>
