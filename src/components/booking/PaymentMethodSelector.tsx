@@ -33,38 +33,43 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Button
             variant="outline"
-            className="h-20 flex flex-col gap-2"
+            className="h-20 flex flex-col gap-2 hover:bg-blue-50 hover:border-blue-300"
             onClick={() => onPaymentMethodSelect('card')}
             disabled={loading}
           >
-            <CreditCard className="h-6 w-6" />
-            <span>Cartão de Crédito</span>
-            <span className="text-xs text-gray-500">Pagamento online</span>
+            <CreditCard className="h-6 w-6 text-blue-600" />
+            <span className="font-medium">Cartão</span>
+            <span className="text-xs text-gray-500">Crédito ou Débito</span>
           </Button>
 
           <Button
             variant="outline"
-            className="h-20 flex flex-col gap-2"
+            className="h-20 flex flex-col gap-2 hover:bg-green-50 hover:border-green-300"
             onClick={() => onPaymentMethodSelect('pix')}
             disabled={loading}
           >
-            <Smartphone className="h-6 w-6" />
-            <span>PIX</span>
-            <span className="text-xs text-gray-500">Pagamento online</span>
+            <Smartphone className="h-6 w-6 text-green-600" />
+            <span className="font-medium">PIX</span>
+            <span className="text-xs text-gray-500">Pagamento instantâneo</span>
           </Button>
         </div>
 
         <div className="border-t pt-4">
           <Button
             variant="ghost"
-            className="w-full h-16 flex flex-col gap-1"
+            className="w-full h-16 flex flex-col gap-1 hover:bg-gray-50"
             onClick={() => onPaymentMethodSelect('cash')}
             disabled={loading}
           >
-            <DollarSign className="h-5 w-5" />
-            <span>Pagar no Local</span>
+            <DollarSign className="h-5 w-5 text-gray-600" />
+            <span className="font-medium">Pagar no Local</span>
             <span className="text-xs text-gray-500">Dinheiro ou cartão na barbearia</span>
           </Button>
+        </div>
+
+        <div className="text-center text-xs text-gray-500 mt-4">
+          <p>💳 Pagamentos processados pelo Mercado Pago</p>
+          <p>🔒 Seus dados estão seguros e protegidos</p>
         </div>
       </CardContent>
     </Card>
