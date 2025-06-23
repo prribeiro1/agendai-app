@@ -80,14 +80,8 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || req.headers.get("referer") || "https://lovable.dev";
     console.log("Origin detectada:", origin);
 
-    // Configurar métodos de pagamento baseado na escolha
-    let paymentMethods = [];
-    if (paymentMethod === 'card') {
-      paymentMethods = ['credit_card', 'debit_card'];
-    } else if (paymentMethod === 'pix') {
-      paymentMethods = ['pix'];
-    } else if (paymentMethod === 'cash') {
-      // Para pagamento no local, não criamos preferência no MP
+    // Para pagamento no local, não criar preferência no MP
+    if (paymentMethod === 'cash') {
       return new Response(JSON.stringify({ 
         payment_type: 'cash',
         message: 'Agendamento será criado com pagamento no local'
@@ -97,7 +91,7 @@ serve(async (req) => {
       });
     }
 
-    console.log("Métodos de pagamento configurados:", paymentMethods);
+    console.log("Método de pagamento selecionado:", paymentMethod);
 
     // Criar preferência no Mercado Pago
     const preferenceData = {
@@ -142,20 +136,34 @@ serve(async (req) => {
       notification_url: `${origin}/webhook/mercadopago`
     };
 
-    // Configurar métodos específicos baseado na escolha
+    // CORREÇÃO: Configurar métodos específicos baseado na escolha
     if (paymentMethod === 'pix') {
-      preferenceData.payment_methods.excluded_payment_types = [
-        { id: "credit_card" },
-        { id: "debit_card" },
-        { id: "ticket" },
-        { id: "bank_transfer" }
-      ];
+      // Para PIX: Permitir APENAS PIX
+      preferenceData.payment_methods = {
+        excluded_payment_types: [
+          { id: "credit_card" },
+          { id: "debit_card" },
+          { id: "ticket" },
+          { id: "bank_transfer" },
+          { id: "account_money" }
+        ],
+        excluded_payment_methods: [],
+        installments: 1
+      };
+      console.log("Configurando para PIX apenas");
     } else if (paymentMethod === 'card') {
-      preferenceData.payment_methods.excluded_payment_types = [
-        { id: "pix" },
-        { id: "ticket" },
-        { id: "bank_transfer" }
-      ];
+      // Para Cartão: Permitir APENAS cartões
+      preferenceData.payment_methods = {
+        excluded_payment_types: [
+          { id: "pix" },
+          { id: "ticket" },
+          { id: "bank_transfer" },
+          { id: "account_money" }
+        ],
+        excluded_payment_methods: [],
+        installments: 12
+      };
+      console.log("Configurando para cartões apenas");
     }
 
     console.log("Criando preferência MercadoPago com dados:", JSON.stringify(preferenceData, null, 2));
