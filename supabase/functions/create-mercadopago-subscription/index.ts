@@ -85,7 +85,7 @@ serve(async (req) => {
           title: "Assinatura BarberApp - Mensal",
           description: `Assinatura mensal para ${barbershop.name}`,
           quantity: 1,
-          unit_price: 19.90,
+          unit_price: 49.90,
           currency_id: "BRL"
         }
       ],

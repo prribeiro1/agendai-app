@@ -152,7 +152,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
         size="lg"
       >
         <CreditCard className="h-4 w-4 mr-2" />
-        {loading ? 'Processando...' : 'Assinar - R$ 19,90/mês'}
+        {loading ? 'Processando...' : 'Assinar - R$ 49,90/mês'}
       </Button>
     </div>
   );
