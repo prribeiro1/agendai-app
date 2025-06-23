@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, ExternalLink, Users, Calendar, Scissors, CheckCircle, BarChart3 } from 'lucide-react';
+import { CreditCard, ExternalLink, Users, Calendar, Scissors, CheckCircle, BarChart3, Settings } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
-import { MercadoPagoManager } from './MercadoPagoManager';
+import { MercadoPagoCredentials } from './MercadoPagoCredentials';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
 import { AppointmentsManager } from './AppointmentsManager';
@@ -92,46 +92,33 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
   return (
     <div className="space-y-6">
       {/* Status da Assinatura */}
-      <Card className={isSubscriptionActive ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}>
+      <Card className="border-green-200 bg-green-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {isSubscriptionActive ? (
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            ) : (
-              <CreditCard className="h-5 w-5 text-blue-600" />
-            )}
-            {isSubscriptionActive ? 'Assinatura Ativa' : 'Modo Teste Gratuito'}
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            Sistema BarberApp - Modo Teste Gratuito
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
-              <Badge variant={isSubscriptionActive ? 'default' : 'secondary'} className="mb-2">
-                {isSubscriptionActive ? 'Plano Premium Ativo' : 'Modo Teste - Grátis'}
+              <Badge variant="default" className="mb-2">
+                Teste Gratuito Ilimitado
               </Badge>
               
-              {subscription?.current_period_end && isSubscriptionActive ? (
+              <div className="space-y-1">
                 <p className="text-sm text-gray-600">
-                  Próxima cobrança: {new Date(subscription.current_period_end).toLocaleDateString('pt-BR')}
+                  Todas as funcionalidades estão liberadas gratuitamente.
                 </p>
-              ) : (
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-600">
-                    Você está usando o modo teste gratuito.
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Todas as funcionalidades estão disponíveis. Assine para suporte prioritário.
-                  </p>
-                </div>
-              )}
+                <p className="text-xs text-gray-500">
+                  Para suporte prioritário e recursos exclusivos, assine o plano premium.
+                </p>
+              </div>
             </div>
             <SubscriptionManager barbershop={barbershop} onUpdate={onUpdate} />
           </div>
         </CardContent>
       </Card>
-
-      {/* Configuração de Pagamentos - Mercado Pago */}
-      <MercadoPagoManager barbershopId={barbershop.id} />
 
       {/* Link Público */}
       <Card>
@@ -174,6 +161,14 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         >
           <Calendar className="h-4 w-4 mr-2" />
           Agendamentos
+        </Button>
+        <Button 
+          variant={activeTab === 'payments' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('payments')}
+          size="sm"
+        >
+          <CreditCard className="h-4 w-4 mr-2" />
+          Pagamentos
         </Button>
         <Button 
           variant={activeTab === 'reports' ? 'default' : 'ghost'}
@@ -251,6 +246,10 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           
           <AppointmentsManager barbershopId={barbershop.id} />
         </div>
+      )}
+
+      {activeTab === 'payments' && (
+        <MercadoPagoCredentials barbershopId={barbershop.id} />
       )}
 
       {activeTab === 'reports' && (
