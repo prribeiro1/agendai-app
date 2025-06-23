@@ -131,6 +131,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           logo_url: string | null
+          mercadopago_access_token: string | null
           name: string
           owner_id: string | null
           phone: string | null
@@ -144,6 +145,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
+          mercadopago_access_token?: string | null
           name: string
           owner_id?: string | null
           phone?: string | null
@@ -157,6 +159,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
+          mercadopago_access_token?: string | null
           name?: string
           owner_id?: string | null
           phone?: string | null

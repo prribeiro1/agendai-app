@@ -20,6 +20,7 @@ interface Barbershop {
   phone: string;
   address: string;
   description: string;
+  mercadopago_access_token?: string;
 }
 
 interface Service {
@@ -182,6 +183,12 @@ const BookingPage = () => {
       return;
     }
 
+    // Verificar se a barbearia tem credenciais do Mercado Pago configuradas
+    if (!barbershop.mercadopago_access_token) {
+      toast.error('Esta barbearia ainda não configurou o Mercado Pago para receber pagamentos online. Entre em contato diretamente.');
+      return;
+    }
+
     // Validar campos obrigatórios
     if (!form.service_id || !form.barber_id || !form.appointment_time || !form.client_name || !form.client_phone) {
       toast.error('Por favor, preencha todos os campos obrigatórios');
@@ -210,7 +217,7 @@ const BookingPage = () => {
       const { error } = await supabase
         .from('appointments')
         .insert([{
-          barbershop_id: barbershop.id,
+          barbershop_id: barbershop?.id,
           service_id: form.service_id,
           barber_id: form.barber_id,
           appointment_date: form.appointment_date,
@@ -310,12 +317,12 @@ const BookingPage = () => {
 
   const createCashAppointment = async () => {
     try {
-      setProcessingPayment(true);
+      setSubmitting(true);
 
       const { error } = await supabase
         .from('appointments')
         .insert([{
-          barbershop_id: barbershop.id,
+          barbershop_id: barbershop?.id,
           service_id: form.service_id,
           barber_id: form.barber_id,
           appointment_date: form.appointment_date,
@@ -350,7 +357,7 @@ const BookingPage = () => {
       console.error('Erro inesperado ao agendar:', error);
       toast.error('Erro inesperado ao agendar');
     } finally {
-      setProcessingPayment(false);
+      setSubmitting(false);
     }
   };
 
