@@ -111,11 +111,6 @@ serve(async (req) => {
           number: appointmentData.client_phone
         }
       },
-      payment_methods: {
-        excluded_payment_types: [],
-        excluded_payment_methods: [],
-        installments: 12
-      },
       back_urls: {
         success: `${origin}/pagamento-sucesso?payment_id={payment_id}&status={status}&merchant_order_id={merchant_order_id}`,
         failure: `${origin}/agendar/${appointmentData.barbershop_slug}?payment_failed=true`,
@@ -138,32 +133,36 @@ serve(async (req) => {
 
     // CORREÇÃO: Configurar métodos específicos baseado na escolha
     if (paymentMethod === 'pix') {
-      // Para PIX: Permitir APENAS PIX
+      // Para PIX: Configurar para permitir apenas PIX
       preferenceData.payment_methods = {
         excluded_payment_types: [
           { id: "credit_card" },
           { id: "debit_card" },
-          { id: "ticket" },
-          { id: "bank_transfer" },
-          { id: "account_money" }
+          { id: "ticket" }
         ],
         excluded_payment_methods: [],
         installments: 1
       };
       console.log("Configurando para PIX apenas");
     } else if (paymentMethod === 'card') {
-      // Para Cartão: Permitir APENAS cartões
+      // Para Cartão: Configurar para permitir apenas cartões
       preferenceData.payment_methods = {
         excluded_payment_types: [
-          { id: "pix" },
-          { id: "ticket" },
-          { id: "bank_transfer" },
-          { id: "account_money" }
+          { id: "ticket" }
         ],
-        excluded_payment_methods: [],
+        excluded_payment_methods: [
+          { id: "pix" }
+        ],
         installments: 12
       };
       console.log("Configurando para cartões apenas");
+    } else {
+      // Configuração padrão - permitir todos os métodos
+      preferenceData.payment_methods = {
+        excluded_payment_types: [],
+        excluded_payment_methods: [],
+        installments: 12
+      };
     }
 
     console.log("Criando preferência MercadoPago com dados:", JSON.stringify(preferenceData, null, 2));
