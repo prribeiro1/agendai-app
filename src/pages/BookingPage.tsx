@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,8 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Scissors, Clock, Phone, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
-import { PaymentMethodSelector } from '@/components/booking/PaymentMethodSelector';
-import { useMercadoPagoPayment } from '@/hooks/useMercadoPagoPayment';
+import { AppointmentConfirmation } from '@/components/booking/AppointmentConfirmation';
+import { useAppointmentBooking } from '@/hooks/useAppointmentBooking';
 
 interface Barbershop {
   id: string;
@@ -21,7 +20,6 @@ interface Barbershop {
   phone: string;
   address: string;
   description: string;
-  mercadopago_access_token?: string;
 }
 
 interface Service {
@@ -43,8 +41,8 @@ const BookingPage = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [form, setForm] = useState({
     service_id: '',
     barber_id: '',
@@ -55,9 +53,8 @@ const BookingPage = () => {
     client_email: '',
     notes: ''
   });
-  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   
-  const { createPayment, loading: processingPayment } = useMercadoPagoPayment();
+  const { createAppointment, loading: processingAppointment } = useAppointmentBooking();
 
   const allTimeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
@@ -138,8 +135,6 @@ const BookingPage = () => {
         date: form.appointment_date
       });
 
-      // Buscar agendamentos existentes para o barbeiro na data selecionada
-      // Incluindo todos os status exceto cancelado para evitar conflitos
       const { data: existingAppointments, error } = await supabase
         .from('appointments')
         .select('appointment_time, status')
@@ -155,17 +150,15 @@ const BookingPage = () => {
 
       console.log('Agendamentos existentes encontrados:', existingAppointments);
 
-      // Filtrar horários já ocupados
       const occupiedTimes = existingAppointments
         .map(apt => {
-          // Garantir que o formato seja HH:MM
           const timeStr = apt.appointment_time;
           if (timeStr.includes(':')) {
-            return timeStr.slice(0, 5); // HH:MM
+            return timeStr.slice(0, 5);
           }
           return timeStr;
         })
-        .filter(time => time && time.length === 5); // Apenas horários válidos
+        .filter(time => time && time.length === 5);
 
       const available = allTimeSlots.filter(time => !occupiedTimes.includes(time));
       
@@ -174,7 +167,6 @@ const BookingPage = () => {
       
       setAvailableTimeSlots(available);
 
-      // Se o horário selecionado não está mais disponível, limpar a seleção
       if (form.appointment_time && !available.includes(form.appointment_time)) {
         setForm(prev => ({ ...prev, appointment_time: '' }));
       }
@@ -197,80 +189,17 @@ const BookingPage = () => {
       return;
     }
 
-    // Verificar se a barbearia tem credenciais do Mercado Pago configuradas
-    if (!barbershop.mercadopago_access_token) {
-      toast.error('Esta barbearia ainda não configurou o Mercado Pago para receber pagamentos online. Entre em contato diretamente.');
-      return;
-    }
-
     // Validar campos obrigatórios
     if (!form.service_id || !form.barber_id || !form.appointment_time || !form.client_name || !form.client_phone) {
       toast.error('Por favor, preencha todos os campos obrigatórios');
       return;
     }
 
-    const selectedService = services.find(s => s.id === form.service_id);
-    if (!selectedService) {
-      toast.error('Serviço não encontrado');
-      return;
-    }
-
-    // Se o serviço tem preço, mostrar opções de pagamento
-    if (selectedService.price > 0) {
-      setShowPaymentOptions(true);
-    } else {
-      // Serviço gratuito, criar agendamento diretamente
-      await createFreeAppointment();
-    }
+    // Mostrar confirmação
+    setShowConfirmation(true);
   };
 
-  const createFreeAppointment = async () => {
-    try {
-      setSubmitting(true);
-
-      const { error } = await supabase
-        .from('appointments')
-        .insert([{
-          barbershop_id: barbershop?.id,
-          service_id: form.service_id,
-          barber_id: form.barber_id,
-          appointment_date: form.appointment_date,
-          appointment_time: form.appointment_time,
-          client_name: form.client_name,
-          client_phone: form.client_phone,
-          client_email: form.client_email || null,
-          notes: form.notes || null,
-          payment_status: 'free',
-          payment_method: 'free'
-        }]);
-
-      if (error) {
-        console.error('Erro ao agendar:', error);
-        toast.error('Erro ao agendar: ' + error.message);
-      } else {
-        toast.success('Agendamento realizado com sucesso!');
-        setForm({
-          service_id: '',
-          barber_id: '',
-          appointment_date: new Date().toISOString().split('T')[0],
-          appointment_time: '',
-          client_name: '',
-          client_phone: '',
-          client_email: '',
-          notes: ''
-        });
-        setShowPaymentOptions(false);
-        await checkAvailableTimeSlots();
-      }
-    } catch (error) {
-      console.error('Erro inesperado ao agendar:', error);
-      toast.error('Erro inesperado ao agendar');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handlePaymentMethodSelect = async (method: 'card' | 'pix' | 'cash') => {
+  const handleConfirmAppointment = async (noTalk: boolean) => {
     const selectedService = services.find(s => s.id === form.service_id);
     const selectedBarber = barbers.find(b => b.id === form.barber_id);
     
@@ -282,78 +211,21 @@ const BookingPage = () => {
     try {
       const appointmentData = {
         barbershop_id: barbershop.id,
-        barbershop_slug: barbershop.slug,
         service_id: form.service_id,
-        service_name: selectedService.name,
         barber_id: form.barber_id,
-        barber_name: selectedBarber.name,
         appointment_date: form.appointment_date,
         appointment_time: form.appointment_time,
         client_name: form.client_name,
         client_phone: form.client_phone,
         client_email: form.client_email,
-        notes: form.notes
+        notes: form.notes,
+        no_talk: noTalk
       };
 
-      const result = await createPayment(appointmentData, selectedService.price, method);
+      const result = await createAppointment(appointmentData);
       
       if (result.success) {
-        if (result.type === 'cash') {
-          // Agendamento com pagamento no local criado
-          setForm({
-            service_id: '',
-            barber_id: '',
-            appointment_date: new Date().toISOString().split('T')[0],
-            appointment_time: '',
-            client_name: '',
-            client_phone: '',
-            client_email: '',
-            notes: ''
-          });
-          setShowPaymentOptions(false);
-          await checkAvailableTimeSlots();
-        } else if (result.type === 'online' && result.url) {
-          // Redirecionar para Mercado Pago
-          toast.success('Redirecionando para o pagamento...', {
-            duration: 2000
-          });
-          
-          setTimeout(() => {
-            window.location.href = result.url;
-          }, 1000);
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
-      toast.error('Erro ao processar pagamento. Tente novamente.');
-    }
-  };
-
-  const createCashAppointment = async () => {
-    try {
-      setSubmitting(true);
-
-      const { error } = await supabase
-        .from('appointments')
-        .insert([{
-          barbershop_id: barbershop?.id,
-          service_id: form.service_id,
-          barber_id: form.barber_id,
-          appointment_date: form.appointment_date,
-          appointment_time: form.appointment_time,
-          client_name: form.client_name,
-          client_phone: form.client_phone,
-          client_email: form.client_email || null,
-          notes: form.notes || null,
-          payment_status: 'pending',
-          payment_method: 'cash'
-        }]);
-
-      if (error) {
-        console.error('Erro ao agendar:', error);
-        toast.error('Erro ao agendar: ' + error.message);
-      } else {
-        toast.success('Agendamento realizado! Pagamento será feito no local.');
+        // Resetar formulário
         setForm({
           service_id: '',
           barber_id: '',
@@ -364,14 +236,11 @@ const BookingPage = () => {
           client_email: '',
           notes: ''
         });
-        setShowPaymentOptions(false);
+        setShowConfirmation(false);
         await checkAvailableTimeSlots();
       }
     } catch (error) {
-      console.error('Erro inesperado ao agendar:', error);
-      toast.error('Erro inesperado ao agendar');
-    } finally {
-      setSubmitting(false);
+      console.error('Erro ao confirmar agendamento:', error);
     }
   };
 
@@ -416,6 +285,7 @@ const BookingPage = () => {
   }
 
   const selectedService = services.find(s => s.id === form.service_id);
+  const selectedBarber = barbers.find(b => b.id === form.barber_id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -458,193 +328,179 @@ const BookingPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!showPaymentOptions ? (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="service">Serviço *</Label>
-                    <Select value={form.service_id} onValueChange={(value) => handleInputChange('service_id', value)} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um serviço" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {services.map((service) => (
-                          <SelectItem key={service.id} value={service.id}>
-                            <div className="flex justify-between items-center w-full">
-                              <span>{service.name}</span>
-                              <span className="text-sm text-gray-500 ml-4">
-                                R$ {service.price.toFixed(2)} • {service.duration}min
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="barber">Barbeiro *</Label>
-                    <Select value={form.barber_id} onValueChange={(value) => handleInputChange('barber_id', value)} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um barbeiro" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {barbers.map((barber) => (
-                          <SelectItem key={barber.id} value={barber.id}>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={barber.photo_url} alt={barber.name} />
-                                <AvatarFallback>
-                                  {barber.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{barber.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="date">Data *</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={form.appointment_date}
-                      onChange={(e) => handleInputChange('appointment_date', e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      required
-                      disabled={submitting}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="time">Horário *</Label>
-                    <Select value={form.appointment_time} onValueChange={(value) => handleInputChange('appointment_time', value)} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder={
-                          !form.barber_id 
-                            ? "Selecione um barbeiro primeiro" 
-                            : availableTimeSlots.length === 0 
-                            ? "Nenhum horário disponível" 
-                            : "Selecione um horário"
-                        } />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTimeSlots.map((time) => (
-                          <SelectItem key={time} value={time}>{time}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {form.barber_id && availableTimeSlots.length === 0 && (
-                      <p className="text-sm text-red-500 mt-1">
-                        Nenhum horário disponível para este barbeiro nesta data.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="name">Nome Completo *</Label>
-                    <Input
-                      id="name"
-                      value={form.client_name}
-                      onChange={(e) => handleInputChange('client_name', e.target.value)}
-                      placeholder="Digite seu nome"
-                      required
-                      disabled={submitting}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="phone">Telefone *</Label>
-                    <Input
-                      id="phone"
-                      value={form.client_phone}
-                      onChange={(e) => handleInputChange('client_phone', e.target.value)}
-                      placeholder="(11) 99999-9999"
-                      required
-                      disabled={submitting}
-                    />
-                  </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="service">Serviço *</Label>
+                  <Select value={form.service_id} onValueChange={(value) => handleInputChange('service_id', value)} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um serviço" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          <div className="flex justify-between items-center w-full">
+                            <span>{service.name}</span>
+                            <span className="text-sm text-gray-500 ml-4">
+                              R$ {service.price.toFixed(2)} • {service.duration}min
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
-                  <Label htmlFor="email">E-mail (opcional)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={form.client_email}
-                    onChange={(e) => handleInputChange('client_email', e.target.value)}
-                    placeholder="seu@email.com"
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="notes">Observações</Label>
-                  <Textarea
-                    id="notes"
-                    value={form.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    placeholder="Alguma observação especial?"
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div className="text-center">
-                  {selectedService && (
-                    <p className="text-lg font-semibold mb-4">
-                      {selectedService.price > 0 
-                        ? `Total: R$ ${selectedService.price.toFixed(2)}`
-                        : 'Serviço Gratuito'
-                      }
-                    </p>
-                  )}
-                  <Button 
-                    type="submit" 
-                    className="w-full md:w-auto px-8 py-3 text-lg" 
-                    disabled={submitting || availableTimeSlots.length === 0 || !form.barber_id}
-                  >
-                    {submitting ? 'Processando...' : 'Continuar'}
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold mb-2">Confirme seu agendamento</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p><strong>Serviço:</strong> {selectedService?.name}</p>
-                    <p><strong>Data:</strong> {new Date(form.appointment_date).toLocaleDateString('pt-BR')}</p>
-                    <p><strong>Horário:</strong> {form.appointment_time}</p>
-                    <p><strong>Cliente:</strong> {form.client_name}</p>
-                  </div>
-                </div>
-
-                <PaymentMethodSelector
-                  servicePrice={selectedService?.price || 0}
-                  onPaymentMethodSelect={handlePaymentMethodSelect}
-                  loading={processingPayment}
-                />
-
-                <div className="text-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowPaymentOptions(false)}
-                    disabled={processingPayment}
-                  >
-                    Voltar
-                  </Button>
+                  <Label htmlFor="barber">Barbeiro *</Label>
+                  <Select value={form.barber_id} onValueChange={(value) => handleInputChange('barber_id', value)} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um barbeiro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {barbers.map((barber) => (
+                        <SelectItem key={barber.id} value={barber.id}>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={barber.photo_url} alt={barber.name} />
+                              <AvatarFallback>
+                                {barber.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{barber.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="date">Data *</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={form.appointment_date}
+                    onChange={(e) => handleInputChange('appointment_date', e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="time">Horário *</Label>
+                  <Select value={form.appointment_time} onValueChange={(value) => handleInputChange('appointment_time', value)} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        !form.barber_id 
+                          ? "Selecione um barbeiro primeiro" 
+                          : availableTimeSlots.length === 0 
+                          ? "Nenhum horário disponível" 
+                          : "Selecione um horário"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTimeSlots.map((time) => (
+                        <SelectItem key={time} value={time}>{time}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.barber_id && availableTimeSlots.length === 0 && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Nenhum horário disponível para este barbeiro nesta data.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="name">Nome Completo *</Label>
+                  <Input
+                    id="name"
+                    value={form.client_name}
+                    onChange={(e) => handleInputChange('client_name', e.target.value)}
+                    placeholder="Digite seu nome"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone">Telefone *</Label>
+                  <Input
+                    id="phone"
+                    value={form.client_phone}
+                    onChange={(e) => handleInputChange('client_phone', e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="email">E-mail (opcional)</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.client_email}
+                  onChange={(e) => handleInputChange('client_email', e.target.value)}
+                  placeholder="seu@email.com"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Observações</Label>
+                <Textarea
+                  id="notes"
+                  value={form.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  placeholder="Alguma observação especial?"
+                />
+              </div>
+
+              <div className="text-center">
+                {selectedService && (
+                  <p className="text-lg font-semibold mb-4">
+                    Total: R$ {selectedService.price.toFixed(2)}
+                  </p>
+                )}
+                <Button 
+                  type="submit" 
+                  className="w-full md:w-auto px-8 py-3 text-lg" 
+                  disabled={availableTimeSlots.length === 0 || !form.barber_id}
+                >
+                  Agendar Horário
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
+
+        {/* Modal de Confirmação */}
+        {showConfirmation && selectedService && selectedBarber && (
+          <AppointmentConfirmation
+            isOpen={showConfirmation}
+            onClose={() => setShowConfirmation(false)}
+            appointmentData={{
+              barbershop_id: barbershop.id,
+              service_id: form.service_id,
+              service_name: selectedService.name,
+              service_price: selectedService.price,
+              barber_id: form.barber_id,
+              barber_name: selectedBarber.name,
+              appointment_date: form.appointment_date,
+              appointment_time: form.appointment_time,
+              client_name: form.client_name,
+              client_phone: form.client_phone,
+              client_email: form.client_email,
+              notes: form.notes
+            }}
+            onConfirm={handleConfirmAppointment}
+            loading={processingAppointment}
+          />
+        )}
       </div>
     </div>
   );
