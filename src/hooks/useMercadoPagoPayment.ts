@@ -29,15 +29,33 @@ export const useMercadoPagoPayment = () => {
     setLoading(true);
     
     try {
-      console.log('Criando pagamento Mercado Pago:', {
+      console.log('Criando pagamento:', {
         appointmentData,
         servicePrice,
         paymentMethod
       });
 
-      // Para pagamento no local, criar agendamento diretamente
+      // Para pagamento no local, usar a edge function que retornará sucesso
       if (paymentMethod === 'cash') {
-        const { data: appointment, error } = await supabase
+        console.log('Processando pagamento no local via edge function...');
+        
+        const { data, error } = await supabase.functions.invoke('create-mercadopago-payment', {
+          body: {
+            appointmentData,
+            servicePrice,
+            paymentMethod: 'cash'
+          }
+        });
+
+        if (error) {
+          console.error('Erro na edge function para cash:', error);
+          throw error;
+        }
+
+        console.log('Resposta da edge function para cash:', data);
+
+        // Agora criar o agendamento no banco
+        const { data: appointment, error: appointmentError } = await supabase
           .from('appointments')
           .insert([{
             barbershop_id: appointmentData.barbershop_id,
@@ -50,7 +68,8 @@ export const useMercadoPagoPayment = () => {
             client_email: appointmentData.client_email || null,
             notes: appointmentData.notes || null,
             payment_status: 'pending',
-            payment_method: 'cash'
+            payment_method: 'cash',
+            status: 'confirmado'
           }])
           .select(`
             *,
@@ -59,11 +78,12 @@ export const useMercadoPagoPayment = () => {
           `)
           .single();
 
-        if (error) {
-          console.error('Erro ao criar agendamento:', error);
-          throw error;
+        if (appointmentError) {
+          console.error('Erro ao criar agendamento:', appointmentError);
+          throw appointmentError;
         }
 
+        console.log('Agendamento criado com sucesso:', appointment);
         toast.success('Agendamento criado! Pagamento será feito no local.');
         return { 
           success: true, 

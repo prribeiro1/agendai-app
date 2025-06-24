@@ -129,27 +129,31 @@ serve(async (req) => {
         notes: appointmentData.notes || '',
       }),
       notification_url: `${origin}/webhook/mercadopago`,
-      // Configurações importantes para permitir pagamento sem login
-      binary_mode: true,
+      // Configurações para garantir pagamento sem necessidade de conta
+      binary_mode: false, // Alterado para false para evitar redirect forçado
       expires: true,
       expiration_date_from: new Date().toISOString(),
-      expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
+      expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      // Forçar checkout como guest
+      marketplace: undefined,
+      marketplace_fee: 0
     };
 
     // Configurar métodos de pagamento baseado na escolha do usuário
     if (paymentMethod === 'pix') {
-      // Para PIX: permitir apenas PIX
+      // Para PIX: apenas PIX disponível, sem necessidade de login
       preferenceData.payment_methods = {
         excluded_payment_types: [
           { id: "credit_card" },
           { id: "debit_card" },
           { id: "ticket" }
         ],
-        installments: 1
+        installments: 1,
+        default_installments: 1
       };
-      console.log("Configurando para PIX apenas");
+      console.log("Configurando para PIX apenas - sem necessidade de login");
     } else if (paymentMethod === 'card') {
-      // Para Cartão: permitir apenas cartões de crédito e débito
+      // Para Cartão: permitir apenas cartões
       preferenceData.payment_methods = {
         excluded_payment_types: [
           { id: "ticket" }
@@ -157,7 +161,8 @@ serve(async (req) => {
         excluded_payment_methods: [
           { id: "pix" }
         ],
-        installments: 12
+        installments: 12,
+        default_installments: 1
       };
       console.log("Configurando para cartões apenas");
     }

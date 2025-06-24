@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -138,12 +139,13 @@ const BookingPage = () => {
       });
 
       // Buscar agendamentos existentes para o barbeiro na data selecionada
+      // Incluindo todos os status exceto cancelado para evitar conflitos
       const { data: existingAppointments, error } = await supabase
         .from('appointments')
-        .select('appointment_time')
+        .select('appointment_time, status')
         .eq('barber_id', form.barber_id)
         .eq('appointment_date', form.appointment_date)
-        .neq('status', 'cancelado');
+        .not('status', 'eq', 'cancelado');
 
       if (error) {
         console.error('Erro ao verificar agendamentos:', error);
@@ -151,8 +153,20 @@ const BookingPage = () => {
         return;
       }
 
+      console.log('Agendamentos existentes encontrados:', existingAppointments);
+
       // Filtrar horários já ocupados
-      const occupiedTimes = existingAppointments.map(apt => apt.appointment_time.slice(0, 5));
+      const occupiedTimes = existingAppointments
+        .map(apt => {
+          // Garantir que o formato seja HH:MM
+          const timeStr = apt.appointment_time;
+          if (timeStr.includes(':')) {
+            return timeStr.slice(0, 5); // HH:MM
+          }
+          return timeStr;
+        })
+        .filter(time => time && time.length === 5); // Apenas horários válidos
+
       const available = allTimeSlots.filter(time => !occupiedTimes.includes(time));
       
       console.log('Horários ocupados:', occupiedTimes);
