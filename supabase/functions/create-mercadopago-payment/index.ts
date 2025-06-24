@@ -128,7 +128,12 @@ serve(async (req) => {
         client_email: appointmentData.client_email || '',
         notes: appointmentData.notes || '',
       }),
-      notification_url: `${origin}/webhook/mercadopago`
+      notification_url: `${origin}/webhook/mercadopago`,
+      // Configurações importantes para permitir pagamento sem login
+      binary_mode: true,
+      expires: true,
+      expiration_date_from: new Date().toISOString(),
+      expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
     };
 
     // Configurar métodos de pagamento baseado na escolha do usuário
@@ -140,7 +145,6 @@ serve(async (req) => {
           { id: "debit_card" },
           { id: "ticket" }
         ],
-        excluded_payment_methods: [],
         installments: 1
       };
       console.log("Configurando para PIX apenas");
