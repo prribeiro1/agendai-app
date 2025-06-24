@@ -131,9 +131,9 @@ serve(async (req) => {
       notification_url: `${origin}/webhook/mercadopago`
     };
 
-    // CORREÇÃO: Configurar métodos específicos baseado na escolha
+    // Configurar métodos de pagamento baseado na escolha do usuário
     if (paymentMethod === 'pix') {
-      // Para PIX: Configurar para permitir apenas PIX
+      // Para PIX: permitir apenas PIX
       preferenceData.payment_methods = {
         excluded_payment_types: [
           { id: "credit_card" },
@@ -145,7 +145,7 @@ serve(async (req) => {
       };
       console.log("Configurando para PIX apenas");
     } else if (paymentMethod === 'card') {
-      // Para Cartão: Configurar para permitir apenas cartões
+      // Para Cartão: permitir apenas cartões de crédito e débito
       preferenceData.payment_methods = {
         excluded_payment_types: [
           { id: "ticket" }
@@ -156,13 +156,6 @@ serve(async (req) => {
         installments: 12
       };
       console.log("Configurando para cartões apenas");
-    } else {
-      // Configuração padrão - permitir todos os métodos
-      preferenceData.payment_methods = {
-        excluded_payment_types: [],
-        excluded_payment_methods: [],
-        installments: 12
-      };
     }
 
     console.log("Criando preferência MercadoPago com dados:", JSON.stringify(preferenceData, null, 2));
