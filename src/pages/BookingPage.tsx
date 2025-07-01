@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Scissors } from 'lucide-react';
@@ -29,6 +28,7 @@ const BookingPage = () => {
   const { createAppointment, loading: processingAppointment } = useAppointmentBooking();
 
   const handleInputChange = (field: string, value: string) => {
+    console.log(`Campo alterado: ${field} = ${value}`);
     setForm(prev => {
       const newForm = { ...prev, [field]: value };
       
@@ -46,32 +46,52 @@ const BookingPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('=== FORMULÁRIO SUBMETIDO ===');
+    console.log('Dados do formulário:', form);
+    
     if (!barbershop) {
       toast.error('Dados da barbearia não encontrados');
       return;
     }
 
     // Validar campos obrigatórios
-    if (!form.service_id || !form.barber_id || !form.appointment_time || !form.client_name || !form.client_phone) {
+    const requiredFields = ['service_id', 'barber_id', 'appointment_time', 'client_name', 'client_phone'];
+    const missingFields = requiredFields.filter(field => !form[field as keyof typeof form]);
+    
+    if (missingFields.length > 0) {
+      console.log('Campos obrigatórios faltando:', missingFields);
       toast.error('Por favor, preencha todos os campos obrigatórios');
       return;
     }
 
     // Validar data
     if (!isValidDate(form.appointment_date)) {
+      console.log('Data inválida:', form.appointment_date);
       toast.error('Data inválida. Não funcionamos às segundas-feiras.');
       return;
     }
 
-    // Mostrar confirmação
+    // Validar se o horário ainda está disponível
+    if (!availableTimeSlots.includes(form.appointment_time)) {
+      console.log('Horário não disponível:', form.appointment_time);
+      toast.error('Horário selecionado não está mais disponível');
+      await refreshTimeSlots();
+      return;
+    }
+
+    console.log('Validações passaram, mostrando confirmação...');
     setShowConfirmation(true);
   };
 
   const handleConfirmAppointment = async (noTalk: boolean) => {
+    console.log('=== CONFIRMANDO AGENDAMENTO ===');
+    console.log('No talk:', noTalk);
+    
     const selectedService = services.find(s => s.id === form.service_id);
     const selectedBarber = barbers.find(b => b.id === form.barber_id);
     
     if (!selectedService || !selectedBarber || !barbershop) {
+      console.error('Dados incompletos:', { selectedService, selectedBarber, barbershop });
       toast.error('Dados do agendamento incompletos');
       return;
     }
@@ -90,9 +110,12 @@ const BookingPage = () => {
         no_talk: noTalk
       };
 
+      console.log('Dados para criação do agendamento:', appointmentData);
+
       const result = await createAppointment(appointmentData);
       
       if (result.success) {
+        console.log('Agendamento criado com sucesso!');
         // Resetar formulário
         setForm({
           service_id: '',
@@ -106,9 +129,12 @@ const BookingPage = () => {
         });
         setShowConfirmation(false);
         await refreshTimeSlots();
+      } else {
+        console.error('Falha ao criar agendamento:', result.error);
       }
     } catch (error) {
-      console.error('Erro ao confirmar agendamento:', error);
+      console.error('Erro inesperado ao confirmar agendamento:', error);
+      toast.error('Erro inesperado ao confirmar agendamento');
     }
   };
 

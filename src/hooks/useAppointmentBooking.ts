@@ -23,9 +23,11 @@ export const useAppointmentBooking = () => {
     setLoading(true);
     
     try {
-      console.log('Criando agendamento:', appointmentData);
+      console.log('=== INICIANDO CRIAÇÃO DO AGENDAMENTO ===');
+      console.log('Dados do agendamento:', appointmentData);
 
       // Verificar se já existe um agendamento no mesmo horário
+      console.log('Verificando agendamentos existentes...');
       const { data: existingAppointment, error: checkError } = await supabase
         .from('appointments')
         .select('id')
@@ -37,31 +39,40 @@ export const useAppointmentBooking = () => {
 
       if (checkError) {
         console.error('Erro ao verificar agendamento existente:', checkError);
-        throw checkError;
+        toast.error(`Erro na verificação: ${checkError.message}`);
+        return { success: false, error: checkError.message };
       }
 
       if (existingAppointment) {
+        console.log('Horário já ocupado:', existingAppointment);
         toast.error('Este horário já foi agendado. Por favor, escolha outro horário.');
-        return { success: false };
+        return { success: false, error: 'Horário ocupado' };
       }
+
+      console.log('Horário disponível, criando agendamento...');
+      
+      // Preparar dados para inserção
+      const insertData = {
+        barbershop_id: appointmentData.barbershop_id,
+        service_id: appointmentData.service_id,
+        barber_id: appointmentData.barber_id,
+        appointment_date: appointmentData.appointment_date,
+        appointment_time: appointmentData.appointment_time,
+        client_name: appointmentData.client_name.trim(),
+        client_phone: appointmentData.client_phone.trim(),
+        client_email: appointmentData.client_email?.trim() || null,
+        notes: appointmentData.notes?.trim() || null,
+        no_talk: appointmentData.no_talk || false,
+        status: 'confirmado',
+        payment_status: 'free',
+        payment_method: 'free'
+      };
+
+      console.log('Dados para inserção:', insertData);
 
       const { data: appointment, error } = await supabase
         .from('appointments')
-        .insert([{
-          barbershop_id: appointmentData.barbershop_id,
-          service_id: appointmentData.service_id,
-          barber_id: appointmentData.barber_id,
-          appointment_date: appointmentData.appointment_date,
-          appointment_time: appointmentData.appointment_time,
-          client_name: appointmentData.client_name,
-          client_phone: appointmentData.client_phone,
-          client_email: appointmentData.client_email || null,
-          notes: appointmentData.notes || null,
-          no_talk: appointmentData.no_talk || false,
-          status: 'confirmado',
-          payment_status: 'free',
-          payment_method: 'free'
-        }])
+        .insert([insertData])
         .select(`
           *,
           services (name, price),
@@ -70,9 +81,25 @@ export const useAppointmentBooking = () => {
         .single();
 
       if (error) {
-        console.error('Erro ao criar agendamento:', error);
-        toast.error('Erro ao confirmar agendamento. Tente novamente.');
-        throw error;
+        console.error('Erro detalhado ao criar agendamento:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        let errorMessage = 'Erro ao confirmar agendamento.';
+        
+        if (error.code === '23502') {
+          errorMessage = 'Dados obrigatórios não preenchidos.';
+        } else if (error.code === '23503') {
+          errorMessage = 'Referência inválida nos dados do agendamento.';
+        } else if (error.message) {
+          errorMessage = `Erro: ${error.message}`;
+        }
+        
+        toast.error(errorMessage);
+        return { success: false, error: error.message };
       }
 
       console.log('Agendamento criado com sucesso:', appointment);
@@ -84,9 +111,10 @@ export const useAppointmentBooking = () => {
       };
 
     } catch (error) {
-      console.error('Erro ao criar agendamento:', error);
-      toast.error('Erro ao confirmar agendamento. Tente novamente.');
-      return { success: false };
+      console.error('Erro inesperado ao criar agendamento:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error(`Erro inesperado: ${errorMessage}`);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }

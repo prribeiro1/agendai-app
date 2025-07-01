@@ -19,9 +19,14 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
 
   const checkAvailableTimeSlots = async () => {
     try {
+      console.log('=== VERIFICANDO HORÁRIOS DISPONÍVEIS ===');
+      
       // Verificar se é um dia válido (terça a domingo - 2 a 0)
       const selectedDate = new Date(appointmentDate + 'T00:00:00');
       const dayOfWeek = selectedDate.getDay(); // 0 = domingo, 1 = segunda, etc.
+      
+      console.log('Data selecionada:', appointmentDate);
+      console.log('Dia da semana:', dayOfWeek);
       
       if (dayOfWeek === 1) { // Segunda-feira
         console.log('Segunda-feira não é um dia de funcionamento');
@@ -48,15 +53,17 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
         return;
       }
 
-      console.log('Agendamentos existentes encontrados:', existingAppointments);
+      console.log('Agendamentos encontrados:', existingAppointments);
 
       const occupiedTimes = existingAppointments
         .map(apt => {
           const timeStr = apt.appointment_time;
-          if (timeStr.includes(':')) {
-            return timeStr.slice(0, 5);
+          console.log('Processando horário:', timeStr, typeof timeStr);
+          
+          if (typeof timeStr === 'string') {
+            return timeStr.includes(':') ? timeStr.slice(0, 5) : timeStr;
           }
-          return timeStr;
+          return null;
         })
         .filter(time => time && time.length === 5);
 
@@ -68,7 +75,7 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
       setAvailableTimeSlots(available);
 
     } catch (error) {
-      console.error('Erro ao verificar horários:', error);
+      console.error('Erro inesperado ao verificar horários:', error);
       setAvailableTimeSlots(allTimeSlots);
     }
   };
