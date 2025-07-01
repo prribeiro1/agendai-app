@@ -20,6 +20,7 @@ export type Database = {
           client_phone: string
           created_at: string
           id: string
+          no_talk: boolean | null
           notes: string | null
           payment_method: string | null
           payment_status: string | null
@@ -38,6 +39,7 @@ export type Database = {
           client_phone: string
           created_at?: string
           id?: string
+          no_talk?: boolean | null
           notes?: string | null
           payment_method?: string | null
           payment_status?: string | null
@@ -56,6 +58,7 @@ export type Database = {
           client_phone?: string
           created_at?: string
           id?: string
+          no_talk?: boolean | null
           notes?: string | null
           payment_method?: string | null
           payment_status?: string | null

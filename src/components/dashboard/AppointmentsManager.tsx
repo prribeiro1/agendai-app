@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, User, Phone, Mail, FileText, CheckCircle, XCircle, History } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Mail, FileText, CheckCircle, XCircle, History, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Appointment {
@@ -17,6 +16,7 @@ interface Appointment {
   appointment_time: string;
   status: string;
   notes?: string;
+  no_talk?: boolean;
   services: {
     name: string;
     price: number;
@@ -56,6 +56,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
           appointment_time,
           status,
           notes,
+          no_talk,
           services (
             name,
             price,
@@ -151,12 +152,18 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
     <div key={appointment.id} className="border rounded-lg p-4 space-y-3">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <User className="h-4 w-4 text-gray-500" />
             <span className="font-medium">{appointment.client_name}</span>
             <Badge variant={getStatusColor(appointment.status)}>
               {appointment.status}
             </Badge>
+            {appointment.no_talk && (
+              <Badge variant="outline" className="text-orange-600 border-orange-600 flex items-center gap-1">
+                <VolumeX className="h-3 w-3" />
+                Não conversar
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
@@ -221,6 +228,15 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
         <div className="flex items-start gap-2 text-sm">
           <FileText className="h-3 w-3 text-gray-500 mt-0.5" />
           <span className="text-gray-600">{appointment.notes}</span>
+        </div>
+      )}
+
+      {appointment.no_talk && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-3 rounded">
+          <div className="flex items-center gap-2 text-orange-700 text-sm font-medium">
+            <VolumeX className="h-4 w-4" />
+            Cliente prefere não conversar durante o atendimento
+          </div>
         </div>
       )}
     </div>
