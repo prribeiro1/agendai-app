@@ -1,47 +1,17 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Scissors, Clock, Phone, MapPin } from 'lucide-react';
+import { Scissors } from 'lucide-react';
 import { toast } from 'sonner';
+import { BarbershopHeader } from '@/components/booking/BarbershopHeader';
+import { BookingForm } from '@/components/booking/BookingForm';
 import { AppointmentConfirmation } from '@/components/booking/AppointmentConfirmation';
 import { useAppointmentBooking } from '@/hooks/useAppointmentBooking';
-
-interface Barbershop {
-  id: string;
-  name: string;
-  slug: string;
-  phone: string;
-  address: string;
-  description: string;
-}
-
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  duration: number;
-}
-
-interface Barber {
-  id: string;
-  name: string;
-  photo_url?: string;
-}
+import { useBarbershopData } from '@/hooks/useBarbershopData';
+import { useTimeSlots } from '@/hooks/useTimeSlots';
 
 const BookingPage = () => {
   const { slug } = useParams();
-  const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
-  const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [form, setForm] = useState({
     service_id: '',
@@ -54,160 +24,23 @@ const BookingPage = () => {
     notes: ''
   });
   
+  const { barbershop, services, barbers, loading } = useBarbershopData(slug);
+  const { availableTimeSlots, isValidDate, refreshTimeSlots } = useTimeSlots(form.barber_id, form.appointment_date);
   const { createAppointment, loading: processingAppointment } = useAppointmentBooking();
 
-  // Horários de 45 em 45 minutos das 9h às 20h
-  const allTimeSlots = [
-    '09:00', '09:45', '10:30', '11:15', '12:00', '12:45', 
-    '13:30', '14:15', '15:00', '15:45', '16:30', '17:15', 
-    '18:00', '18:45', '19:15', '20:00'
-  ];
-
-  useEffect(() => {
-    if (slug) {
-      loadBarbershopData();
-    }
-  }, [slug]);
-
-  useEffect(() => {
-    if (form.barber_id && form.appointment_date && barbershop) {
-      checkAvailableTimeSlots();
-    }
-  }, [form.barber_id, form.appointment_date, barbershop]);
-
-  const loadBarbershopData = async () => {
-    try {
-      console.log('Carregando dados da barbearia com slug:', slug);
-      
-      // Carregar dados da barbearia
-      const { data: barbershopData, error: barbershopError } = await supabase
-        .from('barbershops')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_active', true)
-        .single();
-
-      if (barbershopError || !barbershopData) {
-        console.error('Erro ao carregar barbearia:', barbershopError);
-        toast.error('Barbearia não encontrada ou inativa');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Barbearia carregada:', barbershopData);
-      setBarbershop(barbershopData);
-
-      // Carregar serviços
-      const { data: servicesData, error: servicesError } = await supabase
-        .from('services')
-        .select('*')
-        .eq('barbershop_id', barbershopData.id)
-        .eq('is_active', true);
-
-      if (servicesError) {
-        console.error('Erro ao carregar serviços:', servicesError);
-      } else {
-        console.log('Serviços carregados:', servicesData);
-        setServices(servicesData || []);
-      }
-
-      // Carregar barbeiros
-      const { data: barbersData, error: barbersError } = await supabase
-        .from('barbers')
-        .select('*')
-        .eq('barbershop_id', barbershopData.id)
-        .eq('is_active', true);
-
-      if (barbersError) {
-        console.error('Erro ao carregar barbeiros:', barbersError);
-      } else {
-        console.log('Barbeiros carregados:', barbersData);
-        setBarbers(barbersData || []);
-      }
-
-    } catch (error) {
-      console.error('Erro inesperado ao carregar dados:', error);
-      toast.error('Erro inesperado ao carregar dados da barbearia');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkAvailableTimeSlots = async () => {
-    try {
-      // Verificar se é um dia válido (terça a domingo - 2 a 0)
-      const selectedDate = new Date(form.appointment_date + 'T00:00:00');
-      const dayOfWeek = selectedDate.getDay(); // 0 = domingo, 1 = segunda, etc.
-      
-      if (dayOfWeek === 1) { // Segunda-feira
-        console.log('Segunda-feira não é um dia de funcionamento');
-        setAvailableTimeSlots([]);
-        if (form.appointment_time) {
-          setForm(prev => ({ ...prev, appointment_time: '' }));
-        }
-        return;
-      }
-
-      console.log('Verificando horários disponíveis para:', {
-        barber_id: form.barber_id,
-        date: form.appointment_date,
-        dayOfWeek: dayOfWeek
-      });
-
-      const { data: existingAppointments, error } = await supabase
-        .from('appointments')
-        .select('appointment_time, status')
-        .eq('barber_id', form.barber_id)
-        .eq('appointment_date', form.appointment_date)
-        .not('status', 'eq', 'cancelado');
-
-      if (error) {
-        console.error('Erro ao verificar agendamentos:', error);
-        setAvailableTimeSlots(allTimeSlots);
-        return;
-      }
-
-      console.log('Agendamentos existentes encontrados:', existingAppointments);
-
-      const occupiedTimes = existingAppointments
-        .map(apt => {
-          const timeStr = apt.appointment_time;
-          if (timeStr.includes(':')) {
-            return timeStr.slice(0, 5);
-          }
-          return timeStr;
-        })
-        .filter(time => time && time.length === 5);
-
-      const available = allTimeSlots.filter(time => !occupiedTimes.includes(time));
-      
-      console.log('Horários ocupados:', occupiedTimes);
-      console.log('Horários disponíveis:', available);
-      
-      setAvailableTimeSlots(available);
-
-      if (form.appointment_time && !available.includes(form.appointment_time)) {
-        setForm(prev => ({ ...prev, appointment_time: '' }));
-      }
-
-    } catch (error) {
-      console.error('Erro ao verificar horários:', error);
-      setAvailableTimeSlots(allTimeSlots);
-    }
-  };
-
   const handleInputChange = (field: string, value: string) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const isValidDate = (dateString: string) => {
-    const selectedDate = new Date(dateString + 'T00:00:00');
-    const dayOfWeek = selectedDate.getDay();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // Não pode ser segunda-feira (1) e não pode ser no passado
-    return dayOfWeek !== 1 && selectedDate >= today;
+    setForm(prev => {
+      const newForm = { ...prev, [field]: value };
+      
+      // Clear appointment_time if it's no longer available
+      if (field === 'barber_id' || field === 'appointment_date') {
+        if (newForm.appointment_time && !availableTimeSlots.includes(newForm.appointment_time)) {
+          newForm.appointment_time = '';
+        }
+      }
+      
+      return newForm;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -272,7 +105,7 @@ const BookingPage = () => {
           notes: ''
         });
         setShowConfirmation(false);
-        await checkAvailableTimeSlots();
+        await refreshTimeSlots();
       }
     } catch (error) {
       console.error('Erro ao confirmar agendamento:', error);
@@ -322,215 +155,20 @@ const BookingPage = () => {
   const selectedService = services.find(s => s.id === form.service_id);
   const selectedBarber = barbers.find(b => b.id === form.barber_id);
 
-  // Verificar se a data selecionada é segunda-feira
-  const selectedDate = new Date(form.appointment_date + 'T00:00:00');
-  const isMonday = selectedDate.getDay() === 1;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto p-4 max-w-4xl">
-        {/* Header da Barbearia */}
-        <Card className="mb-8">
-          <CardHeader className="text-center bg-blue-600 text-white rounded-t-lg">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <Scissors className="h-8 w-8" />
-              <CardTitle className="text-3xl">{barbershop.name}</CardTitle>
-            </div>
-            {barbershop.description && (
-              <p className="text-blue-100">{barbershop.description}</p>
-            )}
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {barbershop.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-gray-500" />
-                  <span>{barbershop.phone}</span>
-                </div>
-              )}
-              {barbershop.address && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-gray-500" />
-                  <span>{barbershop.address}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Formulário de Agendamento */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-6 w-6" />
-              Agendar Horário
-            </CardTitle>
-            <p className="text-sm text-gray-600">
-              Funcionamento: Terça a Domingo das 9h às 20h
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="service">Serviço *</Label>
-                  <Select value={form.service_id} onValueChange={(value) => handleInputChange('service_id', value)} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um serviço" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {services.map((service) => (
-                        <SelectItem key={service.id} value={service.id}>
-                          <div className="flex justify-between items-center w-full">
-                            <span>{service.name}</span>
-                            <span className="text-sm text-gray-500 ml-4">
-                              R$ {service.price.toFixed(2)} • {service.duration}min
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="barber">Barbeiro *</Label>
-                  <Select value={form.barber_id} onValueChange={(value) => handleInputChange('barber_id', value)} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um barbeiro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {barbers.map((barber) => (
-                        <SelectItem key={barber.id} value={barber.id}>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={barber.photo_url} alt={barber.name} />
-                              <AvatarFallback>
-                                {barber.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>{barber.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="date">Data *</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={form.appointment_date}
-                    onChange={(e) => handleInputChange('appointment_date', e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                  {isMonday && (
-                    <p className="text-sm text-red-500 mt-1">
-                      Não funcionamos às segundas-feiras. Por favor, escolha outro dia.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="time">Horário *</Label>
-                  <Select 
-                    value={form.appointment_time} 
-                    onValueChange={(value) => handleInputChange('appointment_time', value)} 
-                    required
-                    disabled={!form.barber_id || isMonday}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        !form.barber_id 
-                          ? "Selecione um barbeiro primeiro" 
-                          : isMonday
-                          ? "Não funcionamos às segundas"
-                          : availableTimeSlots.length === 0 
-                          ? "Nenhum horário disponível" 
-                          : "Selecione um horário"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTimeSlots.map((time) => (
-                        <SelectItem key={time} value={time}>{time}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.barber_id && !isMonday && availableTimeSlots.length === 0 && (
-                    <p className="text-sm text-red-500 mt-1">
-                      Nenhum horário disponível para este barbeiro nesta data.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="name">Nome Completo *</Label>
-                  <Input
-                    id="name"
-                    value={form.client_name}
-                    onChange={(e) => handleInputChange('client_name', e.target.value)}
-                    placeholder="Digite seu nome"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="phone">Telefone *</Label>
-                  <Input
-                    id="phone"
-                    value={form.client_phone}
-                    onChange={(e) => handleInputChange('client_phone', e.target.value)}
-                    placeholder="(11) 99999-9999"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="email">E-mail (opcional)</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={form.client_email}
-                  onChange={(e) => handleInputChange('client_email', e.target.value)}
-                  placeholder="seu@email.com"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="notes">Observações</Label>
-                <Textarea
-                  id="notes"
-                  value={form.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  placeholder="Alguma observação especial?"
-                />
-              </div>
-
-              <div className="text-center">
-                {selectedService && (
-                  <p className="text-lg font-semibold mb-4">
-                    Total: R$ {selectedService.price.toFixed(2)}
-                  </p>
-                )}
-                <Button 
-                  type="submit" 
-                  className="w-full md:w-auto px-8 py-3 text-lg" 
-                  disabled={availableTimeSlots.length === 0 || !form.barber_id || isMonday}
-                >
-                  Agendar Horário
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <BarbershopHeader barbershop={barbershop} />
+        
+        <BookingForm
+          services={services}
+          barbers={barbers}
+          form={form}
+          availableTimeSlots={availableTimeSlots}
+          isValidDate={isValidDate}
+          onInputChange={handleInputChange}
+          onSubmit={handleSubmit}
+        />
 
         {/* Modal de Confirmação */}
         {showConfirmation && selectedService && selectedBarber && (
