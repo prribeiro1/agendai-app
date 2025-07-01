@@ -56,7 +56,12 @@ const BookingPage = () => {
   
   const { createAppointment, loading: processingAppointment } = useAppointmentBooking();
 
-  const allTimeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+  // Horários de 45 em 45 minutos das 9h às 20h
+  const allTimeSlots = [
+    '09:00', '09:45', '10:30', '11:15', '12:00', '12:45', 
+    '13:30', '14:15', '15:00', '15:45', '16:30', '17:15', 
+    '18:00', '18:45', '19:15', '20:00'
+  ];
 
   useEffect(() => {
     if (slug) {
@@ -130,9 +135,23 @@ const BookingPage = () => {
 
   const checkAvailableTimeSlots = async () => {
     try {
+      // Verificar se é um dia válido (terça a domingo - 2 a 0)
+      const selectedDate = new Date(form.appointment_date + 'T00:00:00');
+      const dayOfWeek = selectedDate.getDay(); // 0 = domingo, 1 = segunda, etc.
+      
+      if (dayOfWeek === 1) { // Segunda-feira
+        console.log('Segunda-feira não é um dia de funcionamento');
+        setAvailableTimeSlots([]);
+        if (form.appointment_time) {
+          setForm(prev => ({ ...prev, appointment_time: '' }));
+        }
+        return;
+      }
+
       console.log('Verificando horários disponíveis para:', {
         barber_id: form.barber_id,
-        date: form.appointment_date
+        date: form.appointment_date,
+        dayOfWeek: dayOfWeek
       });
 
       const { data: existingAppointments, error } = await supabase
@@ -181,6 +200,16 @@ const BookingPage = () => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const isValidDate = (dateString: string) => {
+    const selectedDate = new Date(dateString + 'T00:00:00');
+    const dayOfWeek = selectedDate.getDay();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Não pode ser segunda-feira (1) e não pode ser no passado
+    return dayOfWeek !== 1 && selectedDate >= today;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -192,6 +221,12 @@ const BookingPage = () => {
     // Validar campos obrigatórios
     if (!form.service_id || !form.barber_id || !form.appointment_time || !form.client_name || !form.client_phone) {
       toast.error('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Validar data
+    if (!isValidDate(form.appointment_date)) {
+      toast.error('Data inválida. Não funcionamos às segundas-feiras.');
       return;
     }
 
@@ -287,6 +322,10 @@ const BookingPage = () => {
   const selectedService = services.find(s => s.id === form.service_id);
   const selectedBarber = barbers.find(b => b.id === form.barber_id);
 
+  // Verificar se a data selecionada é segunda-feira
+  const selectedDate = new Date(form.appointment_date + 'T00:00:00');
+  const isMonday = selectedDate.getDay() === 1;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto p-4 max-w-4xl">
@@ -326,6 +365,9 @@ const BookingPage = () => {
               <Clock className="h-6 w-6" />
               Agendar Horário
             </CardTitle>
+            <p className="text-sm text-gray-600">
+              Funcionamento: Terça a Domingo das 9h às 20h
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -387,15 +429,27 @@ const BookingPage = () => {
                     min={new Date().toISOString().split('T')[0]}
                     required
                   />
+                  {isMonday && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Não funcionamos às segundas-feiras. Por favor, escolha outro dia.
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <Label htmlFor="time">Horário *</Label>
-                  <Select value={form.appointment_time} onValueChange={(value) => handleInputChange('appointment_time', value)} required>
+                  <Select 
+                    value={form.appointment_time} 
+                    onValueChange={(value) => handleInputChange('appointment_time', value)} 
+                    required
+                    disabled={!form.barber_id || isMonday}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder={
                         !form.barber_id 
                           ? "Selecione um barbeiro primeiro" 
+                          : isMonday
+                          ? "Não funcionamos às segundas"
                           : availableTimeSlots.length === 0 
                           ? "Nenhum horário disponível" 
                           : "Selecione um horário"
@@ -407,7 +461,7 @@ const BookingPage = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {form.barber_id && availableTimeSlots.length === 0 && (
+                  {form.barber_id && !isMonday && availableTimeSlots.length === 0 && (
                     <p className="text-sm text-red-500 mt-1">
                       Nenhum horário disponível para este barbeiro nesta data.
                     </p>
@@ -469,7 +523,7 @@ const BookingPage = () => {
                 <Button 
                   type="submit" 
                   className="w-full md:w-auto px-8 py-3 text-lg" 
-                  disabled={availableTimeSlots.length === 0 || !form.barber_id}
+                  disabled={availableTimeSlots.length === 0 || !form.barber_id || isMonday}
                 >
                   Agendar Horário
                 </Button>

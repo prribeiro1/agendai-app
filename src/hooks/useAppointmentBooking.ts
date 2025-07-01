@@ -25,6 +25,26 @@ export const useAppointmentBooking = () => {
     try {
       console.log('Criando agendamento:', appointmentData);
 
+      // Verificar se já existe um agendamento no mesmo horário
+      const { data: existingAppointment, error: checkError } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('barber_id', appointmentData.barber_id)
+        .eq('appointment_date', appointmentData.appointment_date)
+        .eq('appointment_time', appointmentData.appointment_time)
+        .not('status', 'eq', 'cancelado')
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Erro ao verificar agendamento existente:', checkError);
+        throw checkError;
+      }
+
+      if (existingAppointment) {
+        toast.error('Este horário já foi agendado. Por favor, escolha outro horário.');
+        return { success: false };
+      }
+
       const { data: appointment, error } = await supabase
         .from('appointments')
         .insert([{
@@ -51,6 +71,7 @@ export const useAppointmentBooking = () => {
 
       if (error) {
         console.error('Erro ao criar agendamento:', error);
+        toast.error('Erro ao confirmar agendamento. Tente novamente.');
         throw error;
       }
 
@@ -65,7 +86,7 @@ export const useAppointmentBooking = () => {
     } catch (error) {
       console.error('Erro ao criar agendamento:', error);
       toast.error('Erro ao confirmar agendamento. Tente novamente.');
-      throw error;
+      return { success: false };
     } finally {
       setLoading(false);
     }
