@@ -146,8 +146,8 @@ Obrigado pela preferência!`;
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4 md:mb-0">
-            <Scissors className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">AgendAI</h1>
+            <Calendar className="h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">AgendeME</h1>
           </div>
           <div className="flex gap-3">
             <Button 
@@ -174,7 +174,7 @@ Obrigado pela preferência!`;
             <Card className="shadow-xl">
               <CardHeader className="text-center bg-blue-600 text-white rounded-t-lg">
                 <CardTitle className="text-2xl flex items-center justify-center gap-2">
-                  <Scissors className="h-6 w-6" />
+                  <Calendar className="h-6 w-6" />
                   Agendar Horário
                 </CardTitle>
               </CardHeader>
@@ -350,7 +350,7 @@ Obrigado pela preferência!`;
                       <p className="text-sm font-medium text-gray-600">Cancelados</p>
                       <p className="text-2xl font-bold text-red-600">{appointments.filter(a => a.status === 'Cancelado').length}</p>
                     </div>
-                    <Scissors className="h-8 w-8 text-red-600" />
+                    <Calendar className="h-8 w-8 text-red-600" />
                   </div>
                 </CardContent>
               </Card>

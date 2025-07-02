@@ -3,9 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, ExternalLink, Users, Calendar, Scissors, CheckCircle, BarChart3, Settings } from 'lucide-react';
+import { ExternalLink, Users, Calendar, Scissors, CheckCircle, BarChart3, Settings } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
-import { MercadoPagoCredentials } from './MercadoPagoCredentials';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
 import { AppointmentsManager } from './AppointmentsManager';
@@ -24,7 +23,7 @@ interface AppointmentStats {
 }
 
 export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barbershop, onUpdate }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('appointments');
   const [stats, setStats] = useState<AppointmentStats>({
     todayCount: 0,
     monthCount: 0,
@@ -96,7 +95,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
-            Sistema BarberApp - Modo Teste Gratuito
+            Sistema AgendeME - Modo Teste Gratuito
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -161,14 +160,6 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
         >
           <Calendar className="h-4 w-4 mr-2" />
           Agendamentos
-        </Button>
-        <Button 
-          variant={activeTab === 'payments' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('payments')}
-          size="sm"
-        >
-          <CreditCard className="h-4 w-4 mr-2" />
-          Pagamentos
         </Button>
         <Button 
           variant={activeTab === 'reports' ? 'default' : 'ghost'}
@@ -238,7 +229,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
                       {loadingStats ? '...' : `R$ ${stats.estimatedRevenue.toFixed(2)}`}
                     </p>
                   </div>
-                  <CreditCard className="h-8 w-8 text-purple-600" />
+                  <Calendar className="h-8 w-8 text-purple-600" />
                 </div>
               </CardContent>
             </Card>
@@ -246,10 +237,6 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           
           <AppointmentsManager barbershopId={barbershop.id} />
         </div>
-      )}
-
-      {activeTab === 'payments' && (
-        <MercadoPagoCredentials barbershopId={barbershop.id} />
       )}
 
       {activeTab === 'reports' && (

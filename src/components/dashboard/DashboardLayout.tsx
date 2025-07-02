@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Scissors, LogOut, Settings, Calendar, Users, CreditCard } from 'lucide-react';
+import { Calendar, LogOut, Settings, Users, CreditCard } from 'lucide-react';
 import { BarbershopSetup } from './BarbershopSetup';
 import { BarbershopDashboard } from './BarbershopDashboard';
 
@@ -95,7 +95,7 @@ const DashboardLayout = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Scissors className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <Calendar className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p>Carregando...</p>
         </div>
       </div>
@@ -112,7 +112,7 @@ const DashboardLayout = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <Scissors className="h-8 w-8 text-blue-600" />
+              <Calendar className="h-8 w-8 text-blue-600" />
               <div>
                 <h1 className="text-xl font-bold">{barbershop.name}</h1>
                 <p className="text-sm text-gray-500">
