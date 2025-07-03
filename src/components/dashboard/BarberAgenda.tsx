@@ -1,56 +1,43 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, User, Clock, MessageSquare, VolumeX, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, Clock, User, Phone, VolumeX, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface Appointment {
+  id: string;
+  client_name: string;
+  client_phone: string;
+  appointment_date: string;
+  appointment_time: string;
+  status: string;
+  notes?: string;
+  no_talk?: boolean;
+  services: {
+    name: string;
+    duration: number;
+  };
+}
 
 interface Barber {
   id: string;
   name: string;
 }
 
-interface Appointment {
-  id: string;
-  appointment_time: string;
-  client_name: string;
-  client_phone: string;
-  no_talk: boolean;
-  services: {
-    name: string;
-  };
-  status: string;
-}
-
 interface BarberAgendaProps {
   barbershopId: string;
 }
 
-// Gerar horários de 9h às 20h, de 45 em 45 minutos
-const generateTimeSlots = () => {
-  const slots = [];
-  const startHour = 9;
-  const endHour = 20;
-  
-  for (let hour = startHour; hour < endHour; hour++) {
-    slots.push(`${hour.toString().padStart(2, '0')}:00`);
-    slots.push(`${hour.toString().padStart(2, '0')}:45`);
-  }
-  
-  return slots;
-};
-
 export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
-
-  const timeSlots = generateTimeSlots();
 
   useEffect(() => {
     if (barbershopId) {
@@ -76,76 +63,97 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
       if (error) {
         console.error('Erro ao carregar barbeiros:', error);
         toast.error('Erro ao carregar barbeiros');
-        return;
-      }
-
-      setBarbers(data || []);
-      if (data && data.length > 0) {
-        setSelectedBarber(data[0].id);
+      } else {
+        console.log('Barbeiros carregados:', data);
+        setBarbers(data || []);
+        if (data && data.length > 0 && !selectedBarber) {
+          setSelectedBarber(data[0].id);
+        }
       }
     } catch (error) {
-      console.error('Erro inesperado:', error);
+      console.error('Erro inesperado ao carregar barbeiros:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const loadAppointments = async () => {
+    if (!selectedBarber || !selectedDate) return;
+    
     try {
+      console.log('Carregando agenda para barbeiro:', selectedBarber, 'data:', selectedDate);
+      
       const { data, error } = await supabase
         .from('appointments')
         .select(`
           id,
-          appointment_time,
           client_name,
           client_phone,
-          no_talk,
+          appointment_date,
+          appointment_time,
           status,
-          services(name)
+          notes,
+          no_talk,
+          services (
+            name,
+            duration
+          )
         `)
         .eq('barbershop_id', barbershopId)
         .eq('barber_id', selectedBarber)
         .eq('appointment_date', selectedDate)
+        .neq('status', 'cancelado')
         .order('appointment_time');
 
       if (error) {
         console.error('Erro ao carregar agendamentos:', error);
-        toast.error('Erro ao carregar agendamentos');
-        return;
+        toast.error('Erro ao carregar agenda');
+      } else {
+        console.log('Agendamentos carregados:', data);
+        setAppointments(data || []);
       }
-
-      setAppointments(data || []);
     } catch (error) {
-      console.error('Erro inesperado:', error);
+      console.error('Erro inesperado ao carregar agenda:', error);
     }
   };
 
-  const getAppointmentForTime = (time: string) => {
-    return appointments.find(apt => apt.appointment_time === time);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmado':
-        return 'bg-green-100 text-green-800';
-      case 'cancelado':
-        return 'bg-red-100 text-red-800';
-      case 'concluido':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const formatTime = (timeString: string) => {
+    return timeString.slice(0, 5);
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('pt-BR', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
     });
   };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'confirmado':
+        return 'default';
+      case 'concluido':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour < 20; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        slots.push(timeString);
+      }
+    }
+    return slots;
+  };
+
+  const timeSlots = generateTimeSlots();
 
   if (loading) {
     return (
@@ -164,7 +172,7 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
           <div className="text-center text-gray-500">
             <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-lg font-medium mb-2">Nenhum barbeiro cadastrado</p>
-            <p className="text-sm">Cadastre barbeiros para visualizar a agenda.</p>
+            <p className="text-sm">Cadastre barbeiros para visualizar suas agendas.</p>
           </div>
         </CardContent>
       </Card>
@@ -173,20 +181,18 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
 
   return (
     <div className="space-y-6">
-      {/* Controles */}
+      {/* Filtros */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Agenda do Barbeiro
+            <Filter className="h-5 w-5" />
+            Filtros da Agenda
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Barbeiro
-              </label>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Barbeiro</label>
               <Select value={selectedBarber} onValueChange={setSelectedBarber}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um barbeiro" />
@@ -201,85 +207,76 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
               </Select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Data
-              </label>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Data</label>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-md"
               />
             </div>
-          </div>
-          
-          <div className="mt-4">
-            <p className="text-sm text-gray-600">
-              Visualizando agenda para <strong>{formatDate(selectedDate)}</strong>
-            </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Grade de horários */}
+      {/* Agenda do Dia */}
       <Card>
         <CardHeader>
-          <CardTitle>Horários de Atendimento</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Agenda - {formatDate(selectedDate)}
+          </CardTitle>
+          <p className="text-sm text-gray-600">
+            Barbeiro: {barbers.find(b => b.id === selectedBarber)?.name}
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-2">
-            {timeSlots.map((time) => {
-              const appointment = getAppointmentForTime(time);
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {timeSlots.map((timeSlot) => {
+              const appointment = appointments.find(apt => apt.appointment_time.slice(0, 5) === timeSlot);
               
               return (
-                <div
-                  key={time}
-                  className={`p-3 rounded-lg border ${
-                    appointment 
-                      ? 'bg-blue-50 border-blue-200' 
-                      : 'bg-gray-50 border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-gray-500" />
-                        <span className="font-medium">{time}</span>
-                      </div>
-                      
-                      {appointment && (
-                        <div className="flex items-center gap-2">
-                          <Badge className={getStatusColor(appointment.status)}>
-                            {appointment.status}
-                          </Badge>
-                          {appointment.no_talk && (
-                            <VolumeX className="h-4 w-4 text-gray-500" />
-                          )}
-                        </div>
-                      )}
-                    </div>
+                <div key={timeSlot} className="flex items-center gap-4 p-3 border rounded-lg">
+                  <div className="w-16 text-sm font-medium text-gray-600">
+                    {timeSlot}
                   </div>
                   
-                  {appointment && (
-                    <div className="mt-2 space-y-1 text-sm">
-                      <div className="flex items-center gap-2">
-                        <User className="h-3 w-3 text-gray-500" />
-                        <span className="font-medium">{appointment.client_name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-3 w-3 text-gray-500" />
-                        <span className="text-gray-600">{appointment.client_phone}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-3 w-3 text-gray-500" />
-                        <span className="text-gray-600">{appointment.services.name}</span>
+                  {appointment ? (
+                    <div className="flex-1 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-gray-500" />
+                            <span className="font-medium">{appointment.client_name}</span>
+                            <Badge variant={getStatusColor(appointment.status)}>
+                              {appointment.status}
+                            </Badge>
+                            {appointment.no_talk && (
+                              <Badge variant="outline" className="text-orange-600 border-orange-600 flex items-center gap-1">
+                                <VolumeX className="h-3 w-3" />
+                                Não conversar
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {appointment.client_phone}
+                            </div>
+                            <span>• {appointment.services?.name}</span>
+                            <span>• {appointment.services?.duration}min</span>
+                          </div>
+                          {appointment.notes && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              <strong>Obs:</strong> {appointment.notes}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )}
-                  
-                  {!appointment && (
-                    <div className="mt-1 text-sm text-gray-500">
+                  ) : (
+                    <div className="flex-1 text-gray-400 italic">
                       Horário livre
                     </div>
                   )}
