@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CreditCard, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
@@ -164,7 +163,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
         size="lg"
       >
         <CreditCard className="h-4 w-4 mr-2" />
-        {loading ? 'Processando...' : 'Assinar - R$ 19,90/mês'}
+        {loading ? 'Processando...' : 'Assinar - R$ 49,90/mês'}
       </Button>
       <p className="text-xs text-gray-500">
         Pagamento seguro via cartão de crédito • Cancele a qualquer momento

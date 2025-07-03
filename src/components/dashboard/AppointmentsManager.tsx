@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,7 +68,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
           )
         `)
         .eq('barbershop_id', barbershopId)
-        .order('appointment_date', { ascending: false })
+        .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
 
       if (error) {
