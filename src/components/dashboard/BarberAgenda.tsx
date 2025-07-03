@@ -254,7 +254,7 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
                             {appointment.status}
                           </Badge>
                           {appointment.no_talk && (
-                            <VolumeX className="h-4 w-4 text-gray-500" title="Cliente prefere não conversar" />
+                            <VolumeX className="h-4 w-4 text-gray-500" />
                           )}
                         </div>
                       )}
