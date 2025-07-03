@@ -206,6 +206,63 @@ export type Database = {
           },
         ]
       }
+      feedbacks: {
+        Row: {
+          appointment_date: string
+          appointment_id: string
+          barber_name: string
+          barbershop_id: string
+          client_name: string
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number
+          service_name: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_id: string
+          barber_name: string
+          barbershop_id: string
+          client_name: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating: number
+          service_name: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_id?: string
+          barber_name?: string
+          barbershop_id?: string
+          client_name?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number
+          service_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedbacks_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedbacks_barbershop_id_fkey"
+            columns: ["barbershop_id"]
+            isOneToOne: false
+            referencedRelation: "barbershops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           id: string

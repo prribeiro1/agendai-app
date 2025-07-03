@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, Clock, User, Phone, VolumeX, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTimeSlots } from '@/hooks/useTimeSlots';
 
 interface Appointment {
   id: string;
@@ -39,6 +39,8 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
 
+  const { allTimeSlots } = useTimeSlots(selectedBarber, selectedDate);
+
   useEffect(() => {
     if (barbershopId) {
       loadBarbers();
@@ -64,7 +66,6 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         console.error('Erro ao carregar barbeiros:', error);
         toast.error('Erro ao carregar barbeiros');
       } else {
-        console.log('Barbeiros carregados:', data);
         setBarbers(data || []);
         if (data && data.length > 0 && !selectedBarber) {
           setSelectedBarber(data[0].id);
@@ -81,8 +82,6 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
     if (!selectedBarber || !selectedDate) return;
     
     try {
-      console.log('Carregando agenda para barbeiro:', selectedBarber, 'data:', selectedDate);
-      
       const { data, error } = await supabase
         .from('appointments')
         .select(`
@@ -109,16 +108,11 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         console.error('Erro ao carregar agendamentos:', error);
         toast.error('Erro ao carregar agenda');
       } else {
-        console.log('Agendamentos carregados:', data);
         setAppointments(data || []);
       }
     } catch (error) {
       console.error('Erro inesperado ao carregar agenda:', error);
     }
-  };
-
-  const formatTime = (timeString: string) => {
-    return timeString.slice(0, 5);
   };
 
   const formatDate = (dateString: string) => {
@@ -141,19 +135,6 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         return 'outline';
     }
   };
-
-  const generateTimeSlots = () => {
-    const slots = [];
-    for (let hour = 8; hour < 20; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        slots.push(timeString);
-      }
-    }
-    return slots;
-  };
-
-  const timeSlots = generateTimeSlots();
 
   if (loading) {
     return (
@@ -233,7 +214,7 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {timeSlots.map((timeSlot) => {
+            {allTimeSlots.map((timeSlot) => {
               const appointment = appointments.find(apt => apt.appointment_time.slice(0, 5) === timeSlot);
               
               return (

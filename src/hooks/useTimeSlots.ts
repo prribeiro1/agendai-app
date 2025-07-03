@@ -34,12 +34,6 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
         return;
       }
 
-      console.log('Verificando horários disponíveis para:', {
-        barber_id: barberId,
-        date: appointmentDate,
-        dayOfWeek: dayOfWeek
-      });
-
       const { data: existingAppointments, error } = await supabase
         .from('appointments')
         .select('appointment_time, status')
@@ -53,13 +47,9 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
         return;
       }
 
-      console.log('Agendamentos encontrados:', existingAppointments);
-
       const occupiedTimes = existingAppointments
         .map(apt => {
           const timeStr = apt.appointment_time;
-          console.log('Processando horário:', timeStr, typeof timeStr);
-          
           if (typeof timeStr === 'string') {
             return timeStr.includes(':') ? timeStr.slice(0, 5) : timeStr;
           }
@@ -68,9 +58,6 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
         .filter(time => time && time.length === 5);
 
       const available = allTimeSlots.filter(time => !occupiedTimes.includes(time));
-      
-      console.log('Horários ocupados:', occupiedTimes);
-      console.log('Horários disponíveis:', available);
       
       setAvailableTimeSlots(available);
 
@@ -93,6 +80,7 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
   return {
     availableTimeSlots,
     isValidDate,
-    refreshTimeSlots: checkAvailableTimeSlots
+    refreshTimeSlots: checkAvailableTimeSlots,
+    allTimeSlots
   };
 };
