@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Scissors, Phone, MapPin } from 'lucide-react';
+import { Phone, MapPin } from 'lucide-react';
 
 interface Barbershop {
   id: string;
@@ -21,7 +21,6 @@ export const BarbershopHeader = ({ barbershop }: BarbershopHeaderProps) => {
     <Card className="mb-8">
       <CardHeader className="text-center bg-blue-600 text-white rounded-t-lg">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <Scissors className="h-8 w-8" />
           <CardTitle className="text-3xl">{barbershop.name}</CardTitle>
         </div>
         {barbershop.description && (

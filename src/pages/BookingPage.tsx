@@ -1,6 +1,6 @@
+
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Scissors } from 'lucide-react';
 import { toast } from 'sonner';
 import { BarbershopHeader } from '@/components/booking/BarbershopHeader';
 import { BookingForm } from '@/components/booking/BookingForm';
@@ -142,7 +142,7 @@ const BookingPage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Scissors className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p>Carregando...</p>
         </div>
       </div>
