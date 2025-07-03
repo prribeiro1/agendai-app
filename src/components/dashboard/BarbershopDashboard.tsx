@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Users, Calendar, CheckCircle, BarChart3, UserCheck } from 'lucide-react';
+import { ExternalLink, Users, Calendar, CheckCircle, BarChart3, UserCheck, Settings } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
 import { AppointmentsManager } from './AppointmentsManager';
 import { ReportsManager } from './ReportsManager';
 import { BarberAgenda } from './BarberAgenda';
+import { BarbershopSettings } from './BarbershopSettings';
 import { supabase } from '@/integrations/supabase/client';
 
 interface BarbershopDashboardProps {
@@ -194,6 +195,14 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           <Users className="h-4 w-4 mr-2" />
           Barbeiros
         </Button>
+        <Button 
+          variant={activeTab === 'settings' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('settings')}
+          size="sm"
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Configurações
+        </Button>
       </div>
 
       {/* Conteúdo das abas */}
@@ -262,6 +271,10 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
 
       {activeTab === 'barbers' && (
         <BarbersManager barbershopId={barbershop.id} />
+      )}
+
+      {activeTab === 'settings' && (
+        <BarbershopSettings barbershop={barbershop} onUpdate={onUpdate} />
       )}
     </div>
   );

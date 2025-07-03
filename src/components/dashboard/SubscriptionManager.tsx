@@ -48,20 +48,22 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
-  // Iniciar o processo de assinatura com Mercado Pago
+  // Iniciar o processo de assinatura via Stripe (apenas cartão de crédito)
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      console.log('Iniciando processo de assinatura com Mercado Pago...');
+      console.log('Iniciando processo de assinatura via Stripe...');
       
-      const { data, error } = await supabase.functions.invoke('create-mercadopago-subscription');
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { paymentMethod: 'card' }
+      });
       
       if (error) {
-        console.error('Erro na função create-mercadopago-subscription:', error);
+        console.error('Erro na função create-checkout:', error);
         throw error;
       }
       
-      console.log('Assinatura criada com sucesso:', data);
+      console.log('Checkout criado com sucesso:', data);
       
       if (data?.url) {
         toast.success('Redirecionando para o pagamento...', {
@@ -104,16 +106,26 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
-  // Abrir portal do Mercado Pago para gerenciar assinatura
+  // Abrir portal de gerenciamento de assinatura
   const handleManageSubscription = async () => {
     setLoading(true);
     try {
-      console.log('Abrindo portal de assinatura do Mercado Pago...');
+      console.log('Abrindo portal de assinatura...');
       
-      // Por enquanto, redirecionar para o site do Mercado Pago
-      window.open('https://www.mercadopago.com.br/assinaturas', '_blank');
+      const { data, error } = await supabase.functions.invoke('customer-portal');
       
-      toast.info('Redirecionado para o Mercado Pago para gerenciar sua assinatura');
+      if (error) {
+        console.error('Erro na função customer-portal:', error);
+        throw error;
+      }
+      
+      console.log('Portal de assinatura criado:', data);
+      
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('URL do portal não retornada');
+      }
     } catch (error) {
       console.error('Erro ao abrir portal de assinatura:', error);
       toast.error('Erro ao abrir configurações de assinatura');
@@ -152,8 +164,11 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
         size="lg"
       >
         <CreditCard className="h-4 w-4 mr-2" />
-        {loading ? 'Processando...' : 'Assinar - R$ 49,90/mês'}
+        {loading ? 'Processando...' : 'Assinar - R$ 19,90/mês'}
       </Button>
+      <p className="text-xs text-gray-500">
+        Pagamento seguro via cartão de crédito • Cancele a qualquer momento
+      </p>
     </div>
   );
 };
