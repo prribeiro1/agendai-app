@@ -35,7 +35,7 @@ export const useAdminAccess = () => {
 
       // Verificar se o usuário é admin através do telefone
       const adminPhones = [
-        '(11) 99999-9999', // Exemplo - substitua pelo seu telefone
+        '(22) 99929-8128', // Seu telefone admin
         // Adicione outros telefones de admin aqui
       ];
       
