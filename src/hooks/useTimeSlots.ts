@@ -21,19 +21,51 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
     try {
       console.log('=== VERIFICANDO HORÁRIOS DISPONÍVEIS ===');
       
-      // Verificar se é um dia válido (terça a domingo - 2 a 0)
       const selectedDate = new Date(appointmentDate + 'T00:00:00');
       const dayOfWeek = selectedDate.getDay(); // 0 = domingo, 1 = segunda, etc.
       
       console.log('Data selecionada:', appointmentDate);
       console.log('Dia da semana:', dayOfWeek);
-      
-      if (dayOfWeek === 1) { // Segunda-feira
-        console.log('Segunda-feira não é um dia de funcionamento');
+
+      // Buscar barbershop_id através do barber_id
+      const { data: barberData, error: barberError } = await supabase
+        .from('barbers')
+        .select('barbershop_id')
+        .eq('id', barberId)
+        .single();
+
+      if (barberError || !barberData) {
+        console.error('Erro ao buscar barbershop_id:', barberError);
         setAvailableTimeSlots([]);
         return;
       }
 
+      // Buscar horários de funcionamento para o dia da semana
+      const { data: businessHours, error: businessHoursError } = await supabase
+        .from('business_hours')
+        .select('open_time, close_time, is_open')
+        .eq('barbershop_id', barberData.barbershop_id)
+        .eq('day_of_week', dayOfWeek)
+        .single();
+
+      if (businessHoursError) {
+        console.error('Erro ao buscar horários de funcionamento:', businessHoursError);
+        // Se não há horários configurados, usar lógica padrão (não funciona às segundas)
+        if (dayOfWeek === 1) {
+          console.log('Segunda-feira não é um dia de funcionamento (padrão)');
+          setAvailableTimeSlots([]);
+          return;
+        }
+      } else {
+        // Verificar se o estabelecimento está aberto no dia
+        if (!businessHours.is_open) {
+          console.log('Estabelecimento fechado neste dia');
+          setAvailableTimeSlots([]);
+          return;
+        }
+      }
+
+      // Buscar agendamentos existentes
       const { data: existingAppointments, error } = await supabase
         .from('appointments')
         .select('appointment_time, status')
@@ -57,9 +89,22 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
         })
         .filter(time => time && time.length === 5);
 
-      const available = allTimeSlots.filter(time => !occupiedTimes.includes(time));
+      let availableSlots = allTimeSlots.filter(time => !occupiedTimes.includes(time));
+
+      // Filtrar horários baseado nos horários de funcionamento configurados
+      if (businessHours && businessHours.open_time && businessHours.close_time) {
+        const openTime = businessHours.open_time.slice(0, 5); // HH:MM format
+        const closeTime = businessHours.close_time.slice(0, 5); // HH:MM format
+        
+        console.log('Horário de funcionamento:', openTime, 'até', closeTime);
+        
+        availableSlots = availableSlots.filter(time => {
+          return time >= openTime && time <= closeTime;
+        });
+      }
       
-      setAvailableTimeSlots(available);
+      console.log('Horários disponíveis:', availableSlots);
+      setAvailableTimeSlots(availableSlots);
 
     } catch (error) {
       console.error('Erro inesperado ao verificar horários:', error);
@@ -73,8 +118,8 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Não pode ser segunda-feira (1) e não pode ser no passado
-    return dayOfWeek !== 1 && selectedDate >= today;
+    // Não pode ser no passado
+    return selectedDate >= today;
   };
 
   return {

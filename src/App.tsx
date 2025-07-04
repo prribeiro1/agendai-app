@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +9,7 @@ import AuthLayout from "./components/auth/AuthLayout";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
 import BookingPage from "./pages/BookingPage";
 import PaymentSuccessPage from "./pages/PaymentSuccessPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 import { toast } from "sonner";
 
@@ -99,6 +99,9 @@ const App = () => {
             {/* Rotas públicas de agendamento */}
             <Route path="/agendar/:slug" element={<BookingPage />} />
             <Route path="/pagamento-sucesso" element={<PaymentSuccessPage />} />
+            
+            {/* Rota admin */}
+            <Route path="/admin" element={<AdminPage />} />
             
             {/* Rotas do dashboard (requer autenticação) */}
             <Route path="/" element={session ? <DashboardLayout /> : <AuthLayout />} />

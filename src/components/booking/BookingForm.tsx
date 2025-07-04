@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,7 +53,10 @@ export const BookingForm = ({
 }: BookingFormProps) => {
   const selectedService = services.find(s => s.id === form.service_id);
   const selectedDate = new Date(form.appointment_date + 'T00:00:00');
-  const isMonday = selectedDate.getDay() === 1;
+  const dayOfWeek = selectedDate.getDay();
+
+  // Verificar se há horários configurados mas nenhum disponível
+  const hasNoAvailableSlots = form.barber_id && availableTimeSlots.length === 0;
 
   return (
     <Card>
@@ -64,7 +66,7 @@ export const BookingForm = ({
           Agendar Horário
         </CardTitle>
         <p className="text-sm text-gray-600">
-          Funcionamento: Terça a Domingo das 9h às 20h
+          Funcionamento conforme horários configurados pelo estabelecimento
         </p>
       </CardHeader>
       <CardContent>
@@ -127,11 +129,6 @@ export const BookingForm = ({
                 min={new Date().toISOString().split('T')[0]}
                 required
               />
-              {isMonday && (
-                <p className="text-sm text-red-500 mt-1">
-                  Não funcionamos às segundas-feiras. Por favor, escolha outro dia.
-                </p>
-              )}
             </div>
 
             <div>
@@ -140,16 +137,14 @@ export const BookingForm = ({
                 value={form.appointment_time} 
                 onValueChange={(value) => onInputChange('appointment_time', value)} 
                 required
-                disabled={!form.barber_id || isMonday}
+                disabled={!form.barber_id || hasNoAvailableSlots}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={
                     !form.barber_id 
                       ? "Selecione um especialista primeiro" 
-                      : isMonday
-                      ? "Não funcionamos às segundas"
-                      : availableTimeSlots.length === 0 
-                      ? "Nenhum horário disponível" 
+                      : hasNoAvailableSlots
+                      ? "Nenhum horário disponível"
                       : "Selecione um horário"
                   } />
                 </SelectTrigger>
@@ -159,9 +154,10 @@ export const BookingForm = ({
                   ))}
                 </SelectContent>
               </Select>
-              {form.barber_id && !isMonday && availableTimeSlots.length === 0 && (
+              {hasNoAvailableSlots && (
                 <p className="text-sm text-red-500 mt-1">
-                  Nenhum horário disponível para este especialista nesta data.
+                  Nenhum horário disponível para este especialista nesta data. 
+                  O estabelecimento pode estar fechado ou todos os horários já estão ocupados.
                 </p>
               )}
             </div>
@@ -221,7 +217,7 @@ export const BookingForm = ({
             <Button 
               type="submit" 
               className="w-full md:w-auto px-8 py-3 text-lg" 
-              disabled={availableTimeSlots.length === 0 || !form.barber_id || isMonday}
+              disabled={availableTimeSlots.length === 0 || !form.barber_id}
             >
               Agendar Horário
             </Button>
