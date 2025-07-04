@@ -165,6 +165,92 @@ export const AdminDashboard = () => {
     try {
       console.log(`Excluindo estabelecimento ${barbershopId}`);
       
+      // Primeiro, excluir dados relacionados devido às restrições de chave estrangeira
+      
+      // Excluir agendamentos
+      const { error: appointmentsError } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('barbershop_id', barbershopId);
+
+      if (appointmentsError) {
+        console.error('Erro ao excluir agendamentos:', appointmentsError);
+        toast.error('Erro ao excluir agendamentos do estabelecimento');
+        return;
+      }
+
+      // Excluir barbeiros
+      const { error: barbersError } = await supabase
+        .from('barbers')
+        .delete()
+        .eq('barbershop_id', barbershopId);
+
+      if (barbersError) {
+        console.error('Erro ao excluir barbeiros:', barbersError);
+        toast.error('Erro ao excluir barbeiros do estabelecimento');
+        return;
+      }
+
+      // Excluir serviços
+      const { error: servicesError } = await supabase
+        .from('services')
+        .delete()
+        .eq('barbershop_id', barbershopId);
+
+      if (servicesError) {
+        console.error('Erro ao excluir serviços:', servicesError);
+        toast.error('Erro ao excluir serviços do estabelecimento');
+        return;
+      }
+
+      // Excluir horários de funcionamento
+      const { error: businessHoursError } = await supabase
+        .from('business_hours')
+        .delete()
+        .eq('barbershop_id', barbershopId);
+
+      if (businessHoursError) {
+        console.error('Erro ao excluir horários:', businessHoursError);
+        toast.error('Erro ao excluir horários do estabelecimento');
+        return;
+      }
+
+      // Excluir feedbacks
+      const { error: feedbacksError } = await supabase
+        .from('feedbacks')
+        .delete()
+        .eq('barbershop_id', barbershopId);
+
+      if (feedbacksError) {
+        console.error('Erro ao excluir feedbacks:', feedbacksError);
+        toast.error('Erro ao excluir feedbacks do estabelecimento');
+        return;
+      }
+
+      // Excluir assinaturas
+      const { error: subscriptionsError } = await supabase
+        .from('subscriptions')
+        .delete()
+        .eq('barbershop_id', barbershopId);
+
+      if (subscriptionsError) {
+        console.error('Erro ao excluir assinaturas:', subscriptionsError);
+        toast.error('Erro ao excluir assinaturas do estabelecimento');
+        return;
+      }
+
+      // Excluir contas Stripe Connect
+      const { error: stripeError } = await supabase
+        .from('stripe_connect_accounts')
+        .delete()
+        .eq('barbershop_id', barbershopId);
+
+      if (stripeError) {
+        console.error('Erro ao excluir conta Stripe:', stripeError);
+        // Não vamos parar aqui pois pode não existir conta Stripe
+      }
+
+      // Finalmente, excluir a barbearia
       const { error } = await supabase
         .from('barbershops')
         .delete()
@@ -185,7 +271,7 @@ export const AdminDashboard = () => {
       // Recarregar as estatísticas
       loadStats();
     } catch (error) {
-      console.error('Erro inesperado:', error);
+      console.error('Erro inesperado ao excluir:', error);
       toast.error('Erro inesperado ao excluir estabelecimento');
     }
   };
