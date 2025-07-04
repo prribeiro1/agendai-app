@@ -20,15 +20,26 @@ export const useAdminAccess = () => {
         return;
       }
 
-      // Verificar se o usuário é admin
-      const adminEmails = [
-        'admin@agendai.com', 
-        'suporte@agendai.com',
-        'prribeiro.contato@gmail.com',
-        // Adicione outros emails de admin aqui
+      // Buscar o perfil do usuário para pegar o telefone
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
+      // Verificar se o usuário é admin através do telefone
+      const adminPhones = [
+        '(11) 99999-9999', // Exemplo - substitua pelo seu telefone
+        // Adicione outros telefones de admin aqui
       ];
       
-      setIsAdmin(adminEmails.includes(user.email || ''));
+      setIsAdmin(adminPhones.includes(profile.phone));
       setLoading(false);
     } catch (error) {
       console.error('Erro ao verificar acesso admin:', error);
