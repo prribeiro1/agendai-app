@@ -14,7 +14,8 @@ import {
   Calendar, 
   DollarSign,
   Eye,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 
 interface Barbershop {
@@ -53,6 +54,8 @@ export const AdminDashboard = () => {
 
   const loadBarbershops = async () => {
     try {
+      console.log('Carregando barbearias para admin...');
+      
       const { data, error } = await supabase
         .from('barbershops')
         .select(`
@@ -63,10 +66,11 @@ export const AdminDashboard = () => {
 
       if (error) {
         console.error('Erro ao carregar barbearias:', error);
-        toast.error('Erro ao carregar barbearias');
+        toast.error('Erro ao carregar estabelecimentos');
         return;
       }
 
+      console.log('Barbearias carregadas:', data);
       setBarbershops(data || []);
     } catch (error) {
       console.error('Erro inesperado:', error);
@@ -122,6 +126,8 @@ export const AdminDashboard = () => {
 
   const toggleBarbershopStatus = async (barbershopId: string, currentStatus: boolean) => {
     try {
+      console.log(`Alterando status da barbearia ${barbershopId} de ${currentStatus} para ${!currentStatus}`);
+      
       const { error } = await supabase
         .from('barbershops')
         .update({ is_active: !currentStatus })
@@ -129,16 +135,58 @@ export const AdminDashboard = () => {
 
       if (error) {
         console.error('Erro ao atualizar status:', error);
-        toast.error('Erro ao atualizar status da barbearia');
+        toast.error('Erro ao atualizar status do estabelecimento');
         return;
       }
 
-      toast.success('Status da barbearia atualizado com sucesso');
-      loadBarbershops();
+      console.log('Status atualizado com sucesso');
+      toast.success('Status do estabelecimento atualizado com sucesso');
+      
+      // Atualizar o estado local imediatamente
+      setBarbershops(prev => prev.map(barbershop => 
+        barbershop.id === barbershopId 
+          ? { ...barbershop, is_active: !currentStatus }
+          : barbershop
+      ));
+      
+      // Recarregar as estatísticas
       loadStats();
     } catch (error) {
       console.error('Erro inesperado:', error);
       toast.error('Erro inesperado ao atualizar status');
+    }
+  };
+
+  const deleteBarbershop = async (barbershopId: string, barbershopName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o estabelecimento "${barbershopName}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      console.log(`Excluindo estabelecimento ${barbershopId}`);
+      
+      const { error } = await supabase
+        .from('barbershops')
+        .delete()
+        .eq('id', barbershopId);
+
+      if (error) {
+        console.error('Erro ao excluir estabelecimento:', error);
+        toast.error('Erro ao excluir estabelecimento');
+        return;
+      }
+
+      console.log('Estabelecimento excluído com sucesso');
+      toast.success('Estabelecimento excluído com sucesso');
+      
+      // Remover do estado local
+      setBarbershops(prev => prev.filter(barbershop => barbershop.id !== barbershopId));
+      
+      // Recarregar as estatísticas
+      loadStats();
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast.error('Erro inesperado ao excluir estabelecimento');
     }
   };
 
@@ -206,7 +254,7 @@ export const AdminDashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Barbearias</p>
+                  <p className="text-sm font-medium text-gray-600">Total Estabelecimentos</p>
                   <p className="text-2xl font-bold text-blue-600">{stats.totalBarbershops}</p>
                 </div>
                 <Building2 className="h-8 w-8 text-blue-600" />
@@ -218,7 +266,7 @@ export const AdminDashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Barbearias Ativas</p>
+                  <p className="text-sm font-medium text-gray-600">Estabelecimentos Ativos</p>
                   <p className="text-2xl font-bold text-green-600">{stats.activeBarbershops}</p>
                 </div>
                 <Users className="h-8 w-8 text-green-600" />
@@ -251,10 +299,10 @@ export const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Lista de Barbearias */}
+        {/* Lista de Estabelecimentos */}
         <Card>
           <CardHeader>
-            <CardTitle>Gerenciar Barbearias</CardTitle>
+            <CardTitle>Gerenciar Estabelecimentos</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -287,7 +335,7 @@ export const AdminDashboard = () => {
                             onCheckedChange={() => toggleBarbershopStatus(barbershop.id, barbershop.is_active)}
                           />
                           <Badge variant={barbershop.is_active ? 'default' : 'secondary'}>
-                            {barbershop.is_active ? 'Ativa' : 'Inativa'}
+                            {barbershop.is_active ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </div>
                       </TableCell>
@@ -300,14 +348,24 @@ export const AdminDashboard = () => {
                         {new Date(barbershop.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(`/agendar/${barbershop.slug}`, '_blank')}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Ver
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(`/agendar/${barbershop.slug}`, '_blank')}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Ver
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteBarbershop(barbershop.id, barbershop.name)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Excluir
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
