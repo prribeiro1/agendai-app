@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Users, Calendar, CheckCircle, BarChart3, UserCheck, Settings } from 'lucide-react';
+import { ExternalLink, Users, Calendar, CheckCircle, BarChart3, UserCheck, Settings, Clock, AlertTriangle } from 'lucide-react';
 import { SubscriptionManager } from './SubscriptionManager';
 import { ServicesManager } from './ServicesManager';
 import { BarbersManager } from './BarbersManager';
@@ -35,6 +35,21 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
 
   const subscription = barbershop.subscriptions?.[0];
   const isSubscriptionActive = subscription?.status === 'active';
+  const isTrial = subscription?.is_trial;
+  const trialEnd = subscription?.trial_end;
+
+  // Calcular dias restantes do trial
+  const getTrialDaysLeft = () => {
+    if (!isTrial || !trialEnd) return 0;
+    const now = new Date();
+    const end = new Date(trialEnd);
+    const diffTime = end.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  };
+
+  const trialDaysLeft = getTrialDaysLeft();
+  const isTrialExpired = isTrial && trialDaysLeft <= 0;
 
   useEffect(() => {
     if (barbershop?.id) {
@@ -90,29 +105,63 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
     }
   };
 
+  // Determinar o status da assinatura para exibição
+  const getSubscriptionStatus = () => {
+    if (isSubscriptionActive) {
+      return {
+        title: 'Sistema AgendAI - Plano Premium Ativo',
+        badge: 'Assinatura Ativa',
+        color: 'bg-green-50 border-green-200',
+        icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+        description: 'Todas as funcionalidades estão liberadas.',
+        note: 'Gerencie sua assinatura através do botão ao lado.'
+      };
+    } else if (isTrial && !isTrialExpired) {
+      return {
+        title: 'Sistema AgendAI - Período de Teste Gratuito',
+        badge: `Teste Gratuito - ${trialDaysLeft} dia${trialDaysLeft !== 1 ? 's' : ''} restante${trialDaysLeft !== 1 ? 's' : ''}`,
+        color: 'bg-blue-50 border-blue-200',
+        icon: <Clock className="h-5 w-5 text-blue-600" />,
+        description: 'Todas as funcionalidades estão liberadas durante o período de teste.',
+        note: 'Assine agora para continuar usando após o período de teste.'
+      };
+    } else {
+      return {
+        title: 'Sistema AgendAI - Acesso Bloqueado',
+        badge: 'Período de Teste Expirado',
+        color: 'bg-red-50 border-red-200',
+        icon: <AlertTriangle className="h-5 w-5 text-red-600" />,
+        description: 'Seu período de teste expirou. Assine para continuar usando.',
+        note: 'Assine agora para reativar todas as funcionalidades.'
+      };
+    }
+  };
+
+  const statusInfo = getSubscriptionStatus();
+
   return (
     <div className="space-y-6">
       {/* Status da Assinatura */}
-      <Card className="border-green-200 bg-green-50">
+      <Card className={statusInfo.color}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            Sistema AgendeME - Modo Teste Gratuito
+            {statusInfo.icon}
+            {statusInfo.title}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <Badge variant="default" className="mb-2">
-                Teste Gratuito Ilimitado
+                {statusInfo.badge}
               </Badge>
               
               <div className="space-y-1">
                 <p className="text-sm text-gray-600">
-                  Todas as funcionalidades estão liberadas gratuitamente.
+                  {statusInfo.description}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Para suporte prioritário e recursos exclusivos, assine o plano premium.
+                  {statusInfo.note}
                 </p>
               </div>
             </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { CreditCard, ExternalLink, RefreshCw, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -16,6 +16,21 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
 
   const subscription = barbershop.subscriptions?.[0];
   const isActive = subscription?.status === 'active';
+  const isTrial = subscription?.is_trial;
+  const trialEnd = subscription?.trial_end;
+
+  // Calcular dias restantes do trial
+  const getTrialDaysLeft = () => {
+    if (!isTrial || !trialEnd) return 0;
+    const now = new Date();
+    const end = new Date(trialEnd);
+    const diffTime = end.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  };
+
+  const trialDaysLeft = getTrialDaysLeft();
+  const isTrialExpired = isTrial && trialDaysLeft <= 0;
 
   // Verificar o status da assinatura
   useEffect(() => {
@@ -48,15 +63,13 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
-  // Iniciar o processo de assinatura via Stripe (apenas cartão de crédito)
+  // Iniciar o processo de assinatura
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      console.log('Iniciando processo de assinatura via Stripe...');
+      console.log('Iniciando processo de assinatura...');
       
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { paymentMethod: 'card' }
-      });
+      const { data, error } = await supabase.functions.invoke('create-checkout');
       
       if (error) {
         console.error('Erro na função create-checkout:', error);
@@ -90,6 +103,9 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
         }, 2000);
       } else if (error.message?.includes('barbearia')) {
         errorMessage = 'Erro ao verificar sua barbearia. Atualize a página e tente novamente.';
+      } else if (error.message?.includes('já possui uma assinatura ativa')) {
+        errorMessage = 'Você já possui uma assinatura ativa.';
+        onUpdate(); // Atualizar dados
       } else {
         errorMessage = error.message || 'Erro inesperado. Tente novamente.';
       }
@@ -134,6 +150,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     }
   };
 
+  // Se tem assinatura ativa
   if (isActive) {
     return (
       <div className="flex flex-col sm:flex-row gap-2">
@@ -155,8 +172,43 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
     );
   }
 
+  // Se está em período de teste
+  if (isTrial && !isTrialExpired) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-blue-600">
+          <Clock className="h-4 w-4" />
+          <span className="text-sm font-medium">
+            Teste gratuito - {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''} restante{trialDaysLeft !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <Button 
+          onClick={handleSubscribe} 
+          disabled={loading} 
+          className="w-full sm:w-auto"
+          size="lg"
+        >
+          <CreditCard className="h-4 w-4 mr-2" />
+          {loading ? 'Processando...' : 'Assinar Agora - R$ 49,90/mês'}
+        </Button>
+        <p className="text-xs text-gray-500">
+          Pagamento seguro via cartão de crédito ou boleto • Cancele a qualquer momento
+        </p>
+      </div>
+    );
+  }
+
+  // Se o teste expirou ou não tem assinatura
   return (
     <div className="flex flex-col gap-3">
+      {isTrialExpired && (
+        <div className="flex items-center gap-2 text-red-600 mb-2">
+          <AlertTriangle className="h-4 w-4" />
+          <span className="text-sm font-medium">
+            Período de teste expirado
+          </span>
+        </div>
+      )}
       <Button 
         onClick={handleSubscribe} 
         disabled={loading} 
@@ -167,7 +219,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ barber
         {loading ? 'Processando...' : 'Assinar - R$ 49,90/mês'}
       </Button>
       <p className="text-xs text-gray-500">
-        Pagamento seguro via cartão de crédito • Cancele a qualquer momento
+        Pagamento seguro via cartão de crédito ou boleto • Cancele a qualquer momento
       </p>
     </div>
   );

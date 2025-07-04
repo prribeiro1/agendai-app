@@ -363,32 +363,50 @@ export type Database = {
       subscriptions: {
         Row: {
           barbershop_id: string | null
+          blocked_at: string | null
+          blocked_reason: string | null
           created_at: string
           current_period_end: string | null
           id: string
+          is_trial: boolean | null
+          payment_failed_at: string | null
           status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          trial_end: string | null
+          trial_start: string | null
           updated_at: string
         }
         Insert: {
           barbershop_id?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
           created_at?: string
           current_period_end?: string | null
           id?: string
+          is_trial?: boolean | null
+          payment_failed_at?: string | null
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
         }
         Update: {
           barbershop_id?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
           created_at?: string
           current_period_end?: string | null
           id?: string
+          is_trial?: boolean | null
+          payment_failed_at?: string | null
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -406,7 +424,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_subscription_status: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
