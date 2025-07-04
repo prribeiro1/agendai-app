@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +10,7 @@ import { AppointmentsManager } from './AppointmentsManager';
 import { ReportsManager } from './ReportsManager';
 import { BarberAgenda } from './BarberAgenda';
 import { BarbershopSettings } from './BarbershopSettings';
+import { BusinessHoursManager } from './BusinessHoursManager';
 import { supabase } from '@/integrations/supabase/client';
 
 interface BarbershopDashboardProps {
@@ -245,6 +245,14 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           Especialistas
         </Button>
         <Button 
+          variant={activeTab === 'business-hours' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('business-hours')}
+          size="sm"
+        >
+          <Clock className="h-4 w-4 mr-2" />
+          Horários
+        </Button>
+        <Button 
           variant={activeTab === 'settings' ? 'default' : 'ghost'}
           onClick={() => setActiveTab('settings')}
           size="sm"
@@ -320,6 +328,10 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
 
       {activeTab === 'barbers' && (
         <BarbersManager barbershopId={barbershop.id} />
+      )}
+
+      {activeTab === 'business-hours' && (
+        <BusinessHoursManager barbershopId={barbershop.id} />
       )}
 
       {activeTab === 'settings' && (
