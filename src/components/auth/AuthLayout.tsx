@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Scissors } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 const AuthLayout = () => {
   const [loading, setLoading] = useState(false);
@@ -123,7 +124,7 @@ const AuthLayout = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Scissors className="h-8 w-8 text-blue-600" />
+            <Calendar className="h-8 w-8 text-blue-600" />
             <CardTitle className="text-2xl">AgendAI</CardTitle>
           </div>
         </CardHeader>

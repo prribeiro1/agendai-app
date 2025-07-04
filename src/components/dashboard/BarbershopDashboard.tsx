@@ -169,7 +169,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           size="sm"
         >
           <UserCheck className="h-4 w-4 mr-2" />
-          Agenda do Barbeiro
+          Agenda do Especialista
         </Button>
         <Button 
           variant={activeTab === 'reports' ? 'default' : 'ghost'}
@@ -193,7 +193,7 @@ export const BarbershopDashboard: React.FC<BarbershopDashboardProps> = ({ barber
           size="sm"
         >
           <Users className="h-4 w-4 mr-2" />
-          Barbeiros
+          Especialistas
         </Button>
         <Button 
           variant={activeTab === 'settings' ? 'default' : 'ghost'}

@@ -92,10 +92,10 @@ export const BookingForm = ({
             </div>
 
             <div>
-              <Label htmlFor="barber">Barbeiro *</Label>
+              <Label htmlFor="barber">Especialista *</Label>
               <Select value={form.barber_id} onValueChange={(value) => onInputChange('barber_id', value)} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione um barbeiro" />
+                  <SelectValue placeholder="Selecione um especialista" />
                 </SelectTrigger>
                 <SelectContent>
                   {barbers.map((barber) => (
@@ -145,7 +145,7 @@ export const BookingForm = ({
                 <SelectTrigger>
                   <SelectValue placeholder={
                     !form.barber_id 
-                      ? "Selecione um barbeiro primeiro" 
+                      ? "Selecione um especialista primeiro" 
                       : isMonday
                       ? "Não funcionamos às segundas"
                       : availableTimeSlots.length === 0 
@@ -161,7 +161,7 @@ export const BookingForm = ({
               </Select>
               {form.barber_id && !isMonday && availableTimeSlots.length === 0 && (
                 <p className="text-sm text-red-500 mt-1">
-                  Nenhum horário disponível para este barbeiro nesta data.
+                  Nenhum horário disponível para este especialista nesta data.
                 </p>
               )}
             </div>

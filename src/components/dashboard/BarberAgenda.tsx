@@ -63,8 +63,8 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         .order('name');
 
       if (error) {
-        console.error('Erro ao carregar barbeiros:', error);
-        toast.error('Erro ao carregar barbeiros');
+        console.error('Erro ao carregar especialistas:', error);
+        toast.error('Erro ao carregar especialistas');
       } else {
         setBarbers(data || []);
         if (data && data.length > 0 && !selectedBarber) {
@@ -72,7 +72,7 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         }
       }
     } catch (error) {
-      console.error('Erro inesperado ao carregar barbeiros:', error);
+      console.error('Erro inesperado ao carregar especialistas:', error);
     } finally {
       setLoading(false);
     }
@@ -152,8 +152,8 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         <CardContent className="p-6">
           <div className="text-center text-gray-500">
             <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">Nenhum barbeiro cadastrado</p>
-            <p className="text-sm">Cadastre barbeiros para visualizar suas agendas.</p>
+            <p className="text-lg font-medium mb-2">Nenhum especialista cadastrado</p>
+            <p className="text-sm">Cadastre especialistas para visualizar suas agendas.</p>
           </div>
         </CardContent>
       </Card>
@@ -173,10 +173,10 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Barbeiro</label>
+              <label className="text-sm font-medium">Especialista</label>
               <Select value={selectedBarber} onValueChange={setSelectedBarber}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione um barbeiro" />
+                  <SelectValue placeholder="Selecione um especialista" />
                 </SelectTrigger>
                 <SelectContent>
                   {barbers.map((barber) => (
@@ -209,7 +209,7 @@ export const BarberAgenda: React.FC<BarberAgendaProps> = ({ barbershopId }) => {
             Agenda - {formatDate(selectedDate)}
           </CardTitle>
           <p className="text-sm text-gray-600">
-            Barbeiro: {barbers.find(b => b.id === selectedBarber)?.name}
+            Especialista: {barbers.find(b => b.id === selectedBarber)?.name}
           </p>
         </CardHeader>
         <CardContent>

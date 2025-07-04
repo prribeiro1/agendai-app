@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, User, Phone, Mail, FileText, CheckCircle, XCircle, History, VolumeX } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Mail, FileText, CheckCircle, XCircle, History, VolumeX, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Appointment {
@@ -76,7 +76,28 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
         toast.error('Erro ao carregar agendamentos: ' + error.message);
       } else {
         console.log('Agendamentos carregados:', data);
-        setAppointments(data || []);
+        // Automaticamente mover agendamentos passados para histórico
+        const today = new Date().toISOString().split('T')[0];
+        const updatedAppointments = data?.map(appointment => {
+          if (appointment.appointment_date < today && appointment.status === 'confirmado') {
+            return { ...appointment, status: 'concluido' };
+          }
+          return appointment;
+        }) || [];
+        
+        // Atualizar no banco os que foram alterados
+        const toUpdate = updatedAppointments.filter((apt, index) => 
+          data && apt.status !== data[index].status
+        );
+        
+        for (const apt of toUpdate) {
+          await supabase
+            .from('appointments')
+            .update({ status: 'concluido' })
+            .eq('id', apt.id);
+        }
+        
+        setAppointments(updatedAppointments);
       }
     } catch (error) {
       console.error('Erro inesperado ao carregar agendamentos:', error);
@@ -103,6 +124,31 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
     } catch (error) {
       console.error('Erro inesperado ao atualizar status:', error);
       toast.error('Erro inesperado ao atualizar status');
+    }
+  };
+
+  const clearHistory = async () => {
+    if (!window.confirm('Tem certeza que deseja limpar todo o histórico? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('barbershop_id', barbershopId)
+        .in('status', ['cancelado', 'concluido']);
+
+      if (error) {
+        console.error('Erro ao limpar histórico:', error);
+        toast.error('Erro ao limpar histórico: ' + error.message);
+      } else {
+        toast.success('Histórico limpo com sucesso!');
+        await loadAppointments();
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao limpar histórico:', error);
+      toast.error('Erro inesperado ao limpar histórico');
     }
   };
 
@@ -133,7 +179,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
   
   const currentAppointments = appointments.filter(appt => {
     const appointmentDate = appt.appointment_date;
-    return appointmentDate >= today && appt.status !== 'cancelado';
+    return appointmentDate >= today && appt.status !== 'cancelado' && appt.status !== 'concluido';
   });
 
   const historyAppointments = appointments.filter(appt => {
@@ -217,7 +263,7 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
             <strong>Serviço:</strong> {appointment.services?.name}
           </div>
           <div>
-            <strong>Barbeiro:</strong> {appointment.barbers?.name}
+            <strong>Especialista:</strong> {appointment.barbers?.name}
           </div>
           <div>
             <strong>Preço:</strong> R$ {appointment.services?.price?.toFixed(2)}
@@ -336,6 +382,21 @@ export const AppointmentsManager: React.FC<AppointmentsManagerProps> = ({ barber
             </TabsContent>
             
             <TabsContent value="history" className="mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Histórico de Agendamentos</h3>
+                {historyAppointments.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearHistory}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Limpar Histórico
+                  </Button>
+                )}
+              </div>
+              
               {historyAppointments.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
