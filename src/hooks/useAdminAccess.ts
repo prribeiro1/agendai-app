@@ -20,10 +20,11 @@ export const useAdminAccess = () => {
         return;
       }
 
-      // Verificar se o usuário é admin (você pode definir emails de admin aqui)
+      // Verificar se o usuário é admin
       const adminEmails = [
         'admin@agendai.com', 
         'suporte@agendai.com',
+        'prribeiro.contato@gmail.com',
         // Adicione outros emails de admin aqui
       ];
       
