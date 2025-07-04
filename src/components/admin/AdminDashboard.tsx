@@ -314,7 +314,7 @@ export const AdminDashboard = () => {
                 })}
               </TableBody>
             </Table>
-          </TableContent>
+          </CardContent>
         </Card>
       </main>
     </div>
