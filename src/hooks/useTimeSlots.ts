@@ -102,6 +102,21 @@ export const useTimeSlots = (barberId: string, appointmentDate: string) => {
           return time >= openTime && time <= closeTime;
         });
       }
+
+      // Filtrar horários que já passaram se for o dia atual
+      const today = new Date();
+      const todayString = today.toISOString().split('T')[0];
+      
+      if (appointmentDate === todayString) {
+        const currentTime = today.toTimeString().slice(0, 5); // HH:MM format
+        console.log('Horário atual:', currentTime);
+        
+        availableSlots = availableSlots.filter(time => {
+          return time > currentTime;
+        });
+        
+        console.log('Horários filtrados para hoje (após horário atual):', availableSlots);
+      }
       
       console.log('Horários disponíveis:', availableSlots);
       setAvailableTimeSlots(availableSlots);
